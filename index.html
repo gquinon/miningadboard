@@ -243,17 +243,21 @@
         </div>
     </div>
     
-    <script src="auth-system-pro.js"></script>
     <script>
-        // Credenciales válidas (en producción esto debería estar en el backend)
+        console.log('🔐 Sistema de login cargado');
+        
+        // Credenciales válidas
         const validUsers = {
             'root': { password: 'admin123', role: 'root', name: 'Administrador Root' },
             'admin': { password: 'admin123', role: 'admin', name: 'Administrador' },
             'analyst': { password: 'analyst123', role: 'analyst', name: 'Analista' }
         };
         
+        console.log('Usuarios configurados:', Object.keys(validUsers));
+        
         function handleLogin(event) {
             event.preventDefault();
+            console.log('🔑 Intentando login...');
             
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
@@ -261,6 +265,9 @@
             const btnLogin = document.getElementById('btnLogin');
             const btnText = document.getElementById('btnText');
             const loading = document.getElementById('loading');
+            
+            console.log('Usuario ingresado:', username);
+            console.log('Contraseña ingresada:', password ? '***' : 'vacía');
             
             // Mostrar loading
             btnLogin.disabled = true;
@@ -271,10 +278,17 @@
             // Simular delay de autenticación
             setTimeout(() => {
                 const user = validUsers[username];
+                console.log('Usuario encontrado:', user ? 'Sí' : 'No');
+                
+                if (user) {
+                    console.log('Contraseña esperada:', user.password);
+                    console.log('Contraseña ingresada:', password);
+                    console.log('Contraseñas coinciden:', user.password === password);
+                }
                 
                 if (user && user.password === password) {
                     // Login exitoso
-                    console.log('Login exitoso:', user.name);
+                    console.log('✅ Login exitoso:', user.name);
                     
                     // Guardar sesión
                     const session = {
