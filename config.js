@@ -94,13 +94,14 @@ window.DashboardConfig = {
     
     // Configuración de Firebase (Configuración real de producción)
     firebaseConfig: {
-        apiKey: "AIzaSyCQ-tC69mIahz20GvSLaakldEFriKj8mVo",
-        authDomain: "dashboard-minero-eecol.firebaseapp.com",
-        databaseURL: "https://dashboard-minero-eecol-default-rtdb.firebaseio.com",
-        projectId: "dashboard-minero-eecol",
-        storageBucket: "dashboard-minero-eecol.firebasestorage.app",
-        messagingSenderId: "397086762057",
-        appId: "1:397086762057:web:b0cf20b5ad771bc05bcb98"
+        apiKey: "AIzaSyC0sXqmd9YJQe9_IhUgO3SGLPnXk_U8RT4",
+        authDomain: "miningadboard.firebaseapp.com",
+        databaseURL: "https://miningadboard-default-rtdb.firebaseio.com",
+        projectId: "miningadboard",
+        storageBucket: "miningadboard.firebasestorage.app",
+        messagingSenderId: "935000207773",
+        appId: "1:935000207773:web:d62b439601d3482d443f74",
+        measurementId: "G-JP9EJQ9KXD"
     },
     
     // URLs de los módulos
