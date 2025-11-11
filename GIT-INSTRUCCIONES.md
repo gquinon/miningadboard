@@ -108,8 +108,9 @@ git commit -m "♻️ Refactor: Reorganizado código de filtros
 
 ### 2. Conectar repositorio local con GitHub
 ```bash
-git remote add origin https://github.com/gnquinon/dashboard-minero-eecol.git
+git remote add origin https://github.com/gquinon/miningadboard.git
 ```
+✅ **YA CONECTADO**
 
 ### 3. Subir código a GitHub
 ```bash
@@ -165,9 +166,10 @@ git push
 ✅ Commit inicial realizado
 ✅ Git configurado con tu usuario
 ✅ 104 archivos en el repositorio
-✅ Listo para hacer commits
+✅ Conectado con GitHub
+✅ Código subido a: https://github.com/gquinon/miningadboard.git
+✅ Listo para seguir trabajando en local
 
-⏳ Pendiente: Conectar con GitHub
 ⏳ Pendiente: Configurar CI/CD
 ```
 
