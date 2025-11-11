@@ -1,0 +1,84 @@
+/* 
+ * Global Zoom Out CSS - Dashboard Minero EECOL
+ * Aplica zoom out automático para mejor visualización en todas las páginas
+ */
+
+body {
+    /* Zoom out automático para mejor visualización */
+    zoom: 0.85 !important;
+    -moz-transform: scale(0.85) !important;
+    -moz-transform-origin: 0 0 !important;
+    -webkit-transform: scale(0.85) !important;
+    -webkit-transform-origin: 0 0 !important;
+    transform: scale(0.85) !important;
+    transform-origin: 0 0 !important;
+}
+
+/* Ajustes específicos para diferentes tipos de layout */
+
+/* Para páginas con contenedor centrado */
+.container {
+    max-width: 1400px !important;
+}
+
+/* Para páginas de dashboard con grid */
+.dashboard-container {
+    gap: 18px !important;
+    padding: 18px !important;
+}
+
+/* Para modales - mantener tamaño normal */
+.modal, .modal-content {
+    zoom: 1.18 !important; /* Compensar el zoom out del body */
+    -moz-transform: scale(1.18) !important;
+    -webkit-transform: scale(1.18) !important;
+    transform: scale(1.18) !important;
+}
+
+/* Para tooltips y elementos flotantes */
+.tooltip, .notification {
+    zoom: 1.18 !important;
+    -moz-transform: scale(1.18) !important;
+    -webkit-transform: scale(1.18) !important;
+    transform: scale(1.18) !important;
+}
+
+/* Ajustes para texto pequeño que podría volverse ilegible */
+.small-text {
+    font-size: 1.1em !important;
+}
+
+/* Ajustes para botones pequeños */
+.btn-small {
+    padding: 8px 16px !important;
+    font-size: 0.95rem !important;
+}
+
+/* Media queries para diferentes tamaños de pantalla */
+@media (max-width: 1200px) {
+    body {
+        zoom: 0.9 !important;
+        -moz-transform: scale(0.9) !important;
+        -webkit-transform: scale(0.9) !important;
+        transform: scale(0.9) !important;
+    }
+}
+
+@media (max-width: 768px) {
+    body {
+        zoom: 1 !important;
+        -moz-transform: scale(1) !important;
+        -webkit-transform: scale(1) !important;
+        transform: scale(1) !important;
+    }
+}
+
+/* Para pantallas muy grandes, zoom out más agresivo */
+@media (min-width: 1920px) {
+    body {
+        zoom: 0.8 !important;
+        -moz-transform: scale(0.8) !important;
+        -webkit-transform: scale(0.8) !important;
+        transform: scale(0.8) !important;
+    }
+}

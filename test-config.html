@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Config</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+        }
+        pre {
+            background: #0f0f23;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #58b5ff;
+        }
+        .success { color: #2ecc71; }
+        .error { color: #e74c3c; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Test de Configuración</h1>
+    <div id="output"></div>
+
+    <script src="config.js"></script>
+    <script>
+        const output = document.getElementById('output');
+        let html = '';
+        
+        // Test 1: DashboardConfig existe
+        html += '<h2>Test 1: window.DashboardConfig</h2>';
+        if (typeof window.DashboardConfig !== 'undefined') {
+            html += '<pre class="success">✅ window.DashboardConfig existe</pre>';
+            html += '<pre>' + JSON.stringify(window.DashboardConfig.app, null, 2) + '</pre>';
+        } else {
+            html += '<pre class="error">❌ window.DashboardConfig NO existe</pre>';
+        }
+        
+        // Test 2: firebaseConfig dentro de DashboardConfig
+        html += '<h2>Test 2: DashboardConfig.firebaseConfig</h2>';
+        if (window.DashboardConfig && window.DashboardConfig.firebaseConfig) {
+            html += '<pre class="success">✅ DashboardConfig.firebaseConfig existe</pre>';
+            html += '<pre>' + JSON.stringify(window.DashboardConfig.firebaseConfig, null, 2) + '</pre>';
+        } else {
+            html += '<pre class="error">❌ DashboardConfig.firebaseConfig NO existe</pre>';
+        }
+        
+        // Test 3: Valores específicos
+        html += '<h2>Test 3: Valores de Firebase Config</h2>';
+        if (window.DashboardConfig && window.DashboardConfig.firebaseConfig) {
+            const fc = window.DashboardConfig.firebaseConfig;
+            html += '<pre>';
+            html += `apiKey: ${fc.apiKey ? '✅' : '❌'} ${fc.apiKey}\n`;
+            html += `projectId: ${fc.projectId ? '✅' : '❌'} ${fc.projectId}\n`;
+            html += `databaseURL: ${fc.databaseURL ? '✅' : '❌'} ${fc.databaseURL}\n`;
+            html += `appId: ${fc.appId ? '✅' : '❌'} ${fc.appId}`;
+            html += '</pre>';
+        } else {
+            html += '<pre class="error">❌ No se puede verificar valores</pre>';
+        }
+        
+        output.innerHTML = html;
+    </script>
+</body>
+</html>

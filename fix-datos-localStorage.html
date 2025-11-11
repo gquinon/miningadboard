@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>🔧 Reparar Datos en localStorage</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            color: #333;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+        }
+        .status {
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .success { background: #d4edda; color: #155724; border: 2px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 2px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 2px solid #ffeaa7; }
+        .info { background: #d1ecf1; color: #0c5460; border: 2px solid #bee5eb; }
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 10px 5px;
+        }
+        .btn:hover { background: #5568d3; }
+        .btn-success { background: #28a745; }
+        .btn-success:hover { background: #218838; }
+        .btn-danger { background: #dc3545; }
+        .btn-danger:hover { background: #c82333; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .actions { text-align: center; margin: 30px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Reparar Datos en localStorage</h1>
+        
+        <div id="status"></div>
+        
+        <div class="actions">
+            <button class="btn" onclick="diagnosticar()">🔍 Diagnosticar</button>
+            <button class="btn btn-success" onclick="repararDesdeJSON()">🔧 Cargar desde proyectos.json</button>
+            <button class="btn btn-danger" onclick="limpiarLocalStorage()">🗑️ Limpiar localStorage</button>
+        </div>
+        
+        <div id="details"></div>
+    </div>
+
+    <script>
+        function diagnosticar() {
+            const statusDiv = document.getElementById('status');
+            const detailsDiv = document.getElementById('details');
+            
+            let html = '<h2>📊 Diagnóstico</h2>';
+            let detailsHtml = '';
+            
+            try {
+                const data = localStorage.getItem('minero_database');
+                
+                if (!data) {
+                    html += '<div class="status warning">⚠️ No hay datos en localStorage</div>';
+                    detailsHtml = '<p>localStorage está vacío. Usa "Cargar desde proyectos.json" para cargar datos.</p>';
+                } else {
+                    const parsed = JSON.parse(data);
+                    const projectCount = parsed.data ? parsed.data.length : 0;
+                    
+                    html += `<div class="status info">📊 Encontrados ${projectCount} proyectos en localStorage</div>`;
+                    
+                    if (projectCount > 0) {
+                        const firstProject = parsed.data[0];
+                        const keys = Object.keys(firstProject);
+                        
+                        detailsHtml += '<h3>Campos del primer proyecto:</h3>';
+                        detailsHtml += '<pre>' + keys.join('\n') + '</pre>';
+                        
+                        // Verificar si tiene "Nombre del proyecto" o "Nombre_del_proyecto"
+                        const hasNombreConEspacios = keys.includes('Nombre del proyecto');
+                        const hasNombreConGuiones = keys.includes('Nombre_del_proyecto');
+                        
+                        if (hasNombreConEspacios) {
+                            html += '<div class="status success">✅ Los datos tienen el formato correcto (con espacios)</div>';
+                            detailsHtml += '<h3>Ejemplo de proyecto:</h3>';
+                            detailsHtml += '<pre>' + JSON.stringify(firstProject, null, 2) + '</pre>';
+                        } else if (hasNombreConGuiones) {
+                            html += '<div class="status warning">⚠️ Los datos tienen guiones bajos en lugar de espacios</div>';
+                            detailsHtml += '<p><strong>Problema:</strong> Los campos tienen guiones bajos (Nombre_del_proyecto) en lugar de espacios (Nombre del proyecto).</p>';
+                            detailsHtml += '<p><strong>Solución:</strong> Haz clic en "Cargar desde proyectos.json" para corregir.</p>';
+                            detailsHtml += '<h3>Ejemplo de proyecto (formato incorrecto):</h3>';
+                            detailsHtml += '<pre>' + JSON.stringify(firstProject, null, 2).substring(0, 500) + '...</pre>';
+                        } else {
+                            html += '<div class="status error">❌ Los datos no tienen el campo de nombre</div>';
+                            detailsHtml += '<p>No se encontró ni "Nombre del proyecto" ni "Nombre_del_proyecto"</p>';
+                            detailsHtml += '<h3>Campos disponibles:</h3>';
+                            detailsHtml += '<pre>' + keys.join('\n') + '</pre>';
+                        }
+                    }
+                }
+            } catch (error) {
+                html += '<div class="status error">❌ Error al leer localStorage</div>';
+                detailsHtml = '<pre>' + error.message + '</pre>';
+            }
+            
+            statusDiv.innerHTML = html;
+            detailsDiv.innerHTML = detailsHtml;
+        }
+        
+        async function repararDesdeJSON() {
+            const statusDiv = document.getElementById('status');
+            const detailsDiv = document.getElementById('details');
+            
+            statusDiv.innerHTML = '<div class="status info">⏳ Cargando datos desde proyectos.json...</div>';
+            
+            try {
+                const response = await fetch('proyectos.json');
+                const data = await response.json();
+                
+                if (!data.data || data.data.length === 0) {
+                    throw new Error('proyectos.json está vacío o no tiene datos');
+                }
+                
+                // Agregar metadata
+                const dataToSave = {
+                    columns: data.columns,
+                    data: data.data,
+                    metadata: {
+                        source: 'proyectos.json',
+                        lastUpdate: new Date().toISOString(),
+                        totalRecords: data.data.length,
+                        version: '2.2.0'
+                    }
+                };
+                
+                // Guardar en localStorage
+                localStorage.setItem('minero_database', JSON.stringify(dataToSave));
+                
+                statusDiv.innerHTML = `<div class="status success">✅ Datos cargados exitosamente: ${data.data.length} proyectos</div>`;
+                
+                // Mostrar ejemplo
+                const firstProject = data.data[0];
+                detailsHtml = '<h3>✅ Datos cargados correctamente</h3>';
+                detailsHtml += '<p><strong>Total proyectos:</strong> ' + data.data.length + '</p>';
+                detailsHtml += '<h3>Ejemplo del primer proyecto:</h3>';
+                detailsHtml += '<pre>' + JSON.stringify(firstProject, null, 2) + '</pre>';
+                detailsHtml += '<div class="actions">';
+                detailsHtml += '<button class="btn btn-success" onclick="window.location.href=\'Panel-Admin-Nuevo.html\'">🚀 Ir al Panel Admin</button>';
+                detailsHtml += '</div>';
+                
+                detailsDiv.innerHTML = detailsHtml;
+                
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status error">❌ Error cargando datos</div>';
+                detailsDiv.innerHTML = '<pre>' + error.message + '</pre>';
+            }
+        }
+        
+        function limpiarLocalStorage() {
+            if (confirm('⚠️ ¿Estás seguro de que quieres borrar todos los datos de localStorage?')) {
+                localStorage.removeItem('minero_database');
+                document.getElementById('status').innerHTML = '<div class="status success">✅ localStorage limpiado</div>';
+                document.getElementById('details').innerHTML = '<p>Ahora puedes cargar datos frescos desde proyectos.json</p>';
+            }
+        }
+        
+        // Ejecutar diagnóstico al cargar
+        window.addEventListener('load', diagnosticar);
+    </script>
+</body>
+</html>

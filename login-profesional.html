@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔐 Login - Dashboard Minero EECOL</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0c1a3a, #162b50, #1a2d52);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .login-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .login-header h1 {
+            color: white;
+            font-size: 2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #0055A6, #E60028);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .login-header p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-group label {
+            display: block;
+            color: white;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #0055A6;
+            box-shadow: 0 0 20px rgba(0, 85, 166, 0.3);
+        }
+        
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .remember-me input[type="checkbox"] {
+            width: auto;
+        }
+        
+        .remember-me label {
+            margin: 0;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: normal;
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(45deg, #0055A6, #003d7a);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+        
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 85, 166, 0.4);
+        }
+        
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .error-message {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid rgba(220, 53, 69, 0.5);
+            color: #ff6b6b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .success-message {
+            background: rgba(40, 167, 69, 0.2);
+            border: 1px solid rgba(40, 167, 69, 0.5);
+            color: #51cf66;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+        }
+        
+        .loading i {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .users-info {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .users-info h3 {
+            color: white;
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+        
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .user-item:last-child {
+            border-bottom: none;
+        }
+        
+        .user-info {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+        }
+        
+        .user-role {
+            background: rgba(0, 85, 166, 0.3);
+            color: #58b5ff;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        /* ==================== RESPONSIVE DESIGN ==================== */
+        
+        /* Tablets */
+        @media (max-width: 768px) {
+            .login-container {
+                max-width: 90%;
+                padding: 30px;
+                margin: 20px;
+            }
+            
+            .login-header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .login-header p {
+                font-size: 0.9rem;
+            }
+            
+            .form-group input {
+                padding: 12px;
+                font-size: 0.95rem;
+            }
+            
+            .login-button {
+                padding: 12px;
+                font-size: 0.95rem;
+            }
+        }
+        
+        /* Móviles */
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            .login-container {
+                max-width: 95%;
+                padding: 25px;
+                margin: 10px;
+                border-radius: 15px;
+            }
+            
+            .login-header {
+                margin-bottom: 30px;
+            }
+            
+            .login-header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .login-header p {
+                font-size: 0.85rem;
+            }
+            
+            .form-group {
+                margin-bottom: 18px;
+            }
+            
+            .form-group label {
+                font-size: 0.9rem;
+                margin-bottom: 6px;
+            }
+            
+            .form-group input {
+                padding: 10px;
+                font-size: 0.9rem;
+            }
+            
+            .login-button {
+                padding: 10px;
+                font-size: 0.9rem;
+            }
+            
+            .login-footer {
+                margin-top: 20px;
+            }
+            
+            .login-footer p {
+                font-size: 0.75rem;
+            }
+        }
+        
+        /* Móviles pequeños */
+        @media (max-width: 360px) {
+            .login-container {
+                padding: 20px;
+                margin: 5px;
+            }
+            
+            .login-header h1 {
+                font-size: 1.3rem;
+            }
+            
+            .login-header p {
+                font-size: 0.8rem;
+            }
+            
+            .form-group input {
+                padding: 8px;
+                font-size: 0.85rem;
+            }
+            
+            .login-button {
+                padding: 8px;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body data-footer="false">
+    <div class="login-container">
+        <div class="login-header">
+            <h1><i class="fas fa-gem"></i> Dashboard Minero</h1>
+            <p>Sistema de Gestión de Proyectos Mineros EECOL</p>
+        </div>
+        
+        <form id="loginForm">
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+            
+            <div class="form-group">
+                <label for="username">Usuario</label>
+                <input type="text" id="username" name="username" placeholder="Ingresa tu usuario" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" id="password" name="password" placeholder="Ingresa tu contraseña" required>
+            </div>
+            
+            <div class="remember-me">
+                <input type="checkbox" id="rememberMe" name="rememberMe">
+                <label for="rememberMe">Recordar sesión por 7 días</label>
+            </div>
+            
+            <button type="submit" class="login-btn" id="loginBtn">
+                <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+            </button>
+            
+            <div class="loading" id="loading">
+                <i class="fas fa-spinner"></i> Autenticando...
+            </div>
+        </form>
+        
+        <div class="users-info">
+            <h3><i class="fas fa-users"></i> Usuarios de Prueba</h3>
+            <div class="user-item">
+                <div class="user-info">root / propuestaadmin</div>
+                <div class="user-role">Administrador</div>
+            </div>
+            <div class="user-item">
+                <div class="user-info">admin / propuestaadmin</div>
+                <div class="user-role">Admin</div>
+            </div>
+            <div class="user-item">
+                <div class="user-info">analyst / analyst123</div>
+                <div class="user-role">Analista</div>
+            </div>
+            <div class="user-item">
+                <div class="user-info">viewer / viewer123</div>
+                <div class="user-role">Visualizador</div>
+            </div>
+            
+            <div style="margin-top: 15px; text-align: center;">
+                <button onclick="unlockAllUsers()" style="
+                    background: #E60028;
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 0.9rem;
+                ">
+                    🔓 Desbloquear Todos los Usuarios
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="auth-system-pro.js"></script>
+    
+    <!-- Footer universal EECOL -->
+    <script src="footer-universal.js"></script>
+    
+    <script>
+        // Elementos del DOM
+        const loginForm = document.getElementById('loginForm');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const rememberMeInput = document.getElementById('rememberMe');
+        const loginBtn = document.getElementById('loginBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        const loading = document.getElementById('loading');
+
+        // Verificar si ya está autenticado
+        if (window.authSystemPro.isAuthenticated()) {
+            redirectToDashboard();
+        }
+
+        // Manejar envío del formulario
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await handleLogin();
+        });
+
+        // Función de login
+        async function handleLogin() {
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+            const rememberMe = rememberMeInput.checked;
+
+            if (!username || !password) {
+                showError('Por favor completa todos los campos');
+                return;
+            }
+
+            // Mostrar loading
+            showLoading(true);
+            hideMessages();
+
+            try {
+                // Intentar autenticación
+                const result = await window.authSystemPro.authenticate(username, password, rememberMe);
+
+                if (result.success) {
+                    showSuccess(`¡Bienvenido ${result.user.displayName}!`);
+                    
+                    // Redirigir después de 1 segundo
+                    setTimeout(() => {
+                        redirectToDashboard();
+                    }, 1000);
+                    
+                } else {
+                    showError(result.error);
+                    
+                    // Mostrar información adicional si está disponible
+                    if (result.attemptsRemaining !== undefined) {
+                        showError(`${result.error}. Intentos restantes: ${result.attemptsRemaining}`);
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error en login:', error);
+                showError('Error interno del sistema. Intenta nuevamente.');
+            }
+
+            showLoading(false);
+        }
+
+        // Mostrar/ocultar loading
+        function showLoading(show) {
+            loading.style.display = show ? 'block' : 'none';
+            loginBtn.disabled = show;
+            
+            if (show) {
+                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Autenticando...';
+            } else {
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Iniciar Sesión';
+            }
+        }
+
+        // Mostrar mensaje de error
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            successMessage.style.display = 'none';
+        }
+
+        // Mostrar mensaje de éxito
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+            errorMessage.style.display = 'none';
+        }
+
+        // Ocultar mensajes
+        function hideMessages() {
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+        }
+
+        // Redirigir al dashboard según el rol
+        function redirectToDashboard() {
+            const user = window.authSystemPro.getCurrentUser();
+            
+            // Verificar si hay una página guardada para redirigir
+            const redirectUrl = sessionStorage.getItem('redirectAfterLogin');
+            if (redirectUrl) {
+                sessionStorage.removeItem('redirectAfterLogin');
+                window.location.href = redirectUrl;
+                return;
+            }
+            
+            // Redirigir según el rol del usuario
+            if (user) {
+                switch (user.role) {
+                    case 'root':
+                    case 'admin':
+                        window.location.href = 'Dashboard Ejecutivo - Proyectos Mineros.html';
+                        break;
+                    case 'analyst':
+                        window.location.href = 'Dashboard Ejecutivo - Proyectos Mineros.html';
+                        break;
+                    default:
+                        window.location.href = 'Dashboard Ejecutivo - Proyectos Mineros.html';
+                }
+            } else {
+                // Fallback si no hay usuario
+                window.location.href = 'Dashboard Ejecutivo - Proyectos Mineros.html';
+            }
+        }
+
+        // Escuchar eventos de autenticación
+        window.addEventListener('authChange', (e) => {
+            if (e.detail.action === 'login') {
+                redirectToDashboard();
+            }
+        });
+
+        // Función para desbloquear todos los usuarios
+        function unlockAllUsers() {
+            try {
+                // Resetear todos los usuarios
+                Object.keys(window.authSystemPro.users).forEach(username => {
+                    const user = window.authSystemPro.users[username];
+                    user.loginAttempts = 0;
+                    user.lockedUntil = null;
+                });
+                
+                showSuccess('✅ Todos los usuarios han sido desbloqueados');
+                console.log('🔓 Todos los usuarios desbloqueados');
+                
+            } catch (error) {
+                showError('Error desbloqueando usuarios: ' + error.message);
+            }
+        }
+
+        // Auto-completar para pruebas (solo en desarrollo)
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key === 'L') {
+                usernameInput.value = 'root';
+                passwordInput.value = 'propuestaadmin';
+                rememberMeInput.checked = true;
+            }
+        });
+    </script>
+</body>
+</html>

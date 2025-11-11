@@ -1,0 +1,37 @@
+{
+  "name": "dashboard-minero-eecol",
+  "version": "2.0.0",
+  "description": "Sistema de gestión y visualización de proyectos mineros para EECOL División Propuestas",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "build": "echo 'No build required - static site'",
+    "deploy": "netlify deploy --prod --dir .",
+    "dev": "python -m http.server 8000"
+  },
+  "keywords": [
+    "dashboard",
+    "minería",
+    "proyectos",
+    "EECOL",
+    "gestión",
+    "visualización",
+    "mining",
+    "projects"
+  ],
+  "author": "EECOL División Propuestas",
+  "license": "MIT",
+  "homepage": "https://dashboard-minero-eecol.netlify.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eecol/dashboard-minero"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
+}

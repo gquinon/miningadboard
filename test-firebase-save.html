@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>🧪 Test Firebase Save</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+        }
+        .card {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .success { border-left: 4px solid #2ecc71; }
+        .error { border-left: 4px solid #e74c3c; }
+        pre {
+            background: #0f0f23;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .btn {
+            background: #58b5ff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover { background: #4a9fd8; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test de Guardado en Firebase</h1>
+    
+    <button class="btn" onclick="testSave()">💾 Test Guardar en Firebase</button>
+    <button class="btn" onclick="testLoad()">📥 Test Cargar desde Firebase</button>
+    <button class="btn" onclick="testAddProject()">➕ Test Agregar Proyecto</button>
+    
+    <div id="results"></div>
+
+    <script src="firebase-manager-universal.js"></script>
+    <script src="database-manager-simple.js"></script>
+    
+    <script>
+        async function testSave() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="card">⏳ Probando guardado en Firebase...</div>';
+            
+            let html = '';
+            
+            try {
+                // Esperar a que los managers se carguen
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                if (!window.firebaseManager) {
+                    throw new Error('Firebase Manager no disponible');
+                }
+                
+                // Crear datos de prueba
+                const testData = {
+                    columns: ['Nombre del proyecto', 'Sector', 'Capex (US$ mn)'],
+                    data: [
+                        {
+                            'Nombre del proyecto': 'Test Project ' + Date.now(),
+                            'Sector': 'Test',
+                            'Capex (US$ mn)': 1000
+                        }
+                    ],
+                    metadata: {
+                        source: 'test',
+                        lastUpdate: new Date().toISOString(),
+                        totalRecords: 1,
+                        version: '2.0.0'
+                    }
+                };
+                
+                html += '<div class="card success">';
+                html += '<h3>📤 Guardando datos de prueba...</h3>';
+                html += '<pre>' + JSON.stringify(testData, null, 2) + '</pre>';
+                html += '</div>';
+                
+                // Intentar guardar
+                const success = await window.firebaseManager.saveData(testData);
+                
+                if (success) {
+                    html += '<div class="card success">';
+                    html += '<h3>✅ Guardado exitoso en Firebase</h3>';
+                    html += '<p>Los datos se guardaron correctamente.</p>';
+                    html += '</div>';
+                } else {
+                    html += '<div class="card error">';
+                    html += '<h3>❌ Error guardando en Firebase</h3>';
+                    html += '<p>saveData() retornó false</p>';
+                    html += '</div>';
+                }
+                
+            } catch (error) {
+                html += '<div class="card error">';
+                html += '<h3>❌ Error</h3>';
+                html += '<pre>' + error.message + '</pre>';
+                html += '<pre>' + error.stack + '</pre>';
+                html += '</div>';
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        async function testLoad() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="card">⏳ Cargando desde Firebase...</div>';
+            
+            let html = '';
+            
+            try {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                if (!window.firebaseManager) {
+                    throw new Error('Firebase Manager no disponible');
+                }
+                
+                const data = await window.firebaseManager.getAllData();
+                
+                if (data && data.data) {
+                    html += '<div class="card success">';
+                    html += '<h3>✅ Datos cargados desde Firebase</h3>';
+                    html += '<p><strong>Proyectos:</strong> ' + data.data.length + '</p>';
+                    html += '<h4>Primeros 3 proyectos:</h4>';
+                    html += '<pre>' + JSON.stringify(data.data.slice(0, 3), null, 2) + '</pre>';
+                    html += '</div>';
+                } else {
+                    html += '<div class="card error">';
+                    html += '<h3>⚠️ Firebase vacío o sin datos</h3>';
+                    html += '</div>';
+                }
+                
+            } catch (error) {
+                html += '<div class="card error">';
+                html += '<h3>❌ Error</h3>';
+                html += '<pre>' + error.message + '</pre>';
+                html += '</div>';
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        async function testAddProject() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="card">⏳ Probando agregar proyecto...</div>';
+            
+            let html = '';
+            
+            try {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                if (!window.dbManager) {
+                    throw new Error('Database Manager no disponible');
+                }
+                
+                const newProject = {
+                    'Nombre del proyecto': 'Proyecto Test ' + new Date().toLocaleTimeString(),
+                    'Sector': 'Test',
+                    'País': 'Chile',
+                    'Capex (US$ mn)': 5000,
+                    'Estado': 'Activo'
+                };
+                
+                html += '<div class="card">';
+                html += '<h3>➕ Agregando proyecto...</h3>';
+                html += '<pre>' + JSON.stringify(newProject, null, 2) + '</pre>';
+                html += '</div>';
+                
+                const index = await window.dbManager.addRecord(newProject);
+                
+                html += '<div class="card success">';
+                html += '<h3>✅ Proyecto agregado</h3>';
+                html += '<p><strong>Índice:</strong> ' + index + '</p>';
+                html += '</div>';
+                
+                // Verificar que se guardó en Firebase
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                const data = await window.firebaseManager.getAllData();
+                
+                html += '<div class="card success">';
+                html += '<h3>🔍 Verificación en Firebase</h3>';
+                html += '<p><strong>Total proyectos en Firebase:</strong> ' + (data.data ? data.data.length : 0) + '</p>';
+                html += '</div>';
+                
+            } catch (error) {
+                html += '<div class="card error">';
+                html += '<h3>❌ Error</h3>';
+                html += '<pre>' + error.message + '</pre>';
+                html += '<pre>' + error.stack + '</pre>';
+                html += '</div>';
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

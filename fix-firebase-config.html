@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>🔧 Reparar Firebase Config</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            color: #333;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .status {
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffeaa7;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 10px 5px;
+            transition: all 0.3s;
+        }
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border-left: 4px solid #667eea;
+        }
+        .actions {
+            text-align: center;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Reparar Firebase Config</h1>
+        
+        <div id="status"></div>
+        
+        <div class="actions">
+            <button class="btn" onclick="fixConfig()">🔧 Reparar Configuración</button>
+            <button class="btn btn-success" onclick="testAndGo()">✅ Verificar y Continuar</button>
+        </div>
+        
+        <div id="details"></div>
+    </div>
+
+    <script>
+        // Cargar config.js primero
+        const script = document.createElement('script');
+        script.src = 'config.js?v=' + Date.now();
+        script.onload = checkConfig;
+        document.head.appendChild(script);
+        
+        function checkConfig() {
+            const statusDiv = document.getElementById('status');
+            const detailsDiv = document.getElementById('details');
+            
+            let html = '';
+            let detailsHtml = '';
+            
+            // Verificar si existe DashboardConfig
+            if (typeof window.DashboardConfig === 'undefined') {
+                html = '<div class="status error">❌ window.DashboardConfig no existe</div>';
+                detailsHtml = '<p>El archivo config.js no se cargó correctamente.</p>';
+            } else if (!window.DashboardConfig.firebaseConfig) {
+                html = '<div class="status warning">⚠️ firebaseConfig no está en DashboardConfig</div>';
+                detailsHtml = '<p>DashboardConfig existe pero no tiene firebaseConfig.</p>';
+                detailsHtml += '<p><strong>Propiedades disponibles:</strong> ' + Object.keys(window.DashboardConfig).join(', ') + '</p>';
+            } else {
+                html = '<div class="status success">✅ firebaseConfig está correctamente configurado</div>';
+                detailsHtml = '<pre>' + JSON.stringify(window.DashboardConfig.firebaseConfig, null, 2) + '</pre>';
+            }
+            
+            statusDiv.innerHTML = html;
+            detailsDiv.innerHTML = detailsHtml;
+        }
+        
+        function fixConfig() {
+            const statusDiv = document.getElementById('status');
+            const detailsDiv = document.getElementById('details');
+            
+            // Crear o actualizar firebaseConfig
+            if (typeof window.DashboardConfig === 'undefined') {
+                window.DashboardConfig = {};
+            }
+            
+            // Agregar firebaseConfig manualmente (Configuración real de producción)
+            window.DashboardConfig.firebaseConfig = {
+                apiKey: "AIzaSyCQ-tC69mIahz20GvSLaakldEFriKj8mVo",
+                authDomain: "dashboard-minero-eecol.firebaseapp.com",
+                databaseURL: "https://dashboard-minero-eecol-default-rtdb.firebaseio.com",
+                projectId: "dashboard-minero-eecol",
+                storageBucket: "dashboard-minero-eecol.firebasestorage.app",
+                messagingSenderId: "397086762057",
+                appId: "1:397086762057:web:b0cf20b5ad771bc05bcb98"
+            };
+            
+            console.log('✅ Firebase Config reparado:', window.DashboardConfig.firebaseConfig);
+            
+            // También crear window.firebaseConfig global
+            window.firebaseConfig = window.DashboardConfig.firebaseConfig;
+            
+            statusDiv.innerHTML = '<div class="status success">✅ firebaseConfig reparado exitosamente</div>';
+            detailsDiv.innerHTML = '<pre>' + JSON.stringify(window.DashboardConfig.firebaseConfig, null, 2) + '</pre>';
+            
+            // Guardar en sessionStorage para que persista
+            sessionStorage.setItem('firebaseConfigFixed', 'true');
+            sessionStorage.setItem('firebaseConfig', JSON.stringify(window.DashboardConfig.firebaseConfig));
+        }
+        
+        function testAndGo() {
+            if (!window.DashboardConfig || !window.DashboardConfig.firebaseConfig) {
+                alert('⚠️ Primero haz clic en "Reparar Configuración"');
+                return;
+            }
+            
+            // Verificar que todo esté OK
+            const config = window.DashboardConfig.firebaseConfig;
+            if (config.apiKey && config.projectId && config.databaseURL) {
+                alert('✅ Configuración verificada. Redirigiendo al Panel Admin...');
+                window.location.href = 'Panel-Admin-Nuevo.html';
+            } else {
+                alert('❌ La configuración está incompleta. Intenta reparar de nuevo.');
+            }
+        }
+        
+        // Auto-reparar si viene de sessionStorage
+        window.addEventListener('load', () => {
+            if (sessionStorage.getItem('firebaseConfigFixed') === 'true') {
+                const savedConfig = sessionStorage.getItem('firebaseConfig');
+                if (savedConfig) {
+                    try {
+                        if (!window.DashboardConfig) window.DashboardConfig = {};
+                        window.DashboardConfig.firebaseConfig = JSON.parse(savedConfig);
+                        window.firebaseConfig = window.DashboardConfig.firebaseConfig;
+                        checkConfig();
+                    } catch (error) {
+                        console.error('Error restaurando config:', error);
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

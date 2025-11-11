@@ -1,0 +1,42 @@
+# Configuración de Netlify para Dashboard Minero
+
+[build]
+  publish = "."
+  command = "echo 'No build required'"
+
+# Headers para permitir Firebase
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Cache busting para archivos JavaScript
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Cache busting para archivos HTML
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Redirigir index a login
+[[redirects]]
+  from = "/"
+  to = "/login-profesional.html"
+  status = 302
+  force = false
+
+# SPA fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false

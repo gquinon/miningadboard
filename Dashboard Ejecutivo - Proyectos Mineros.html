@@ -1,0 +1,3265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Ejecutivo - Proyectos Mineros</title>
+    
+    <!-- Librerías externas -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Sistema de autenticación profesional -->
+    <script src="auth-system-pro.js"></script>
+    
+    <!-- Sistema de protección de rutas -->
+    <script src="route-guard.js"></script>
+    
+    <!-- Sistema de cache busting -->
+    <script src="cache-buster.js"></script>
+    <script src="force-refresh.js"></script>
+    
+    <!-- Footer universal EECOL -->
+    <script src="footer-universal.js"></script>
+    
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, get } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        
+        // Tu configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCQ-tC69mIahz20GvSLaakldEFriKj8mVo",
+            authDomain: "dashboard-minero-eecol.firebaseapp.com",
+            databaseURL: "https://dashboard-minero-eecol-default-rtdb.firebaseio.com",
+            projectId: "dashboard-minero-eecol",
+            storageBucket: "dashboard-minero-eecol.firebasestorage.app",
+            messagingSenderId: "397086762057",
+            appId: "1:397086762057:web:b0cf20b5ad771bc05bcb98"
+        };
+        
+        try {
+            const app = initializeApp(firebaseConfig);
+            const database = getDatabase(app);
+            
+            // Crear manager simple de Firebase
+            window.firebaseManager = {
+                db: database,
+                
+                async saveData(data) {
+                    try {
+                        // Limpiar nombres de campos para Firebase
+                        const cleanData = {
+                            columns: data.columns ? data.columns.map(col => this.cleanFieldName(col)) : [],
+                            data: data.data ? data.data.map(row => this.cleanRowData(row)) : [],
+                            metadata: {
+                                ...data.metadata,
+                                lastUpdate: new Date().toISOString(),
+                                source: 'firebase',
+                                originalColumns: data.columns // Guardar nombres originales
+                            }
+                        };
+                        
+                        const projectsRef = ref(this.db, 'proyectos');
+                        await set(projectsRef, cleanData);
+                        console.log('🔥 Datos guardados en Firebase (campos limpiados)');
+                        return true;
+                    } catch (error) {
+                        console.error('Firebase save error:', error);
+                        return false;
+                    }
+                },
+                
+                // Limpiar nombres de campos para Firebase
+                cleanFieldName(fieldName) {
+                    return fieldName
+                        .replace(/[.#$\/\[\]()]/g, '_') // Reemplazar caracteres problemáticos
+                        .replace(/\s+/g, '_') // Espacios a guiones bajos
+                        .replace(/_+/g, '_') // Múltiples guiones bajos a uno
+                        .replace(/^_|_$/g, ''); // Quitar guiones bajos al inicio/final
+                },
+                
+                // Limpiar datos de fila
+                cleanRowData(row) {
+                    const cleanRow = {};
+                    Object.keys(row).forEach(key => {
+                        const cleanKey = this.cleanFieldName(key);
+                        cleanRow[cleanKey] = row[key];
+                    });
+                    return cleanRow;
+                },
+                
+                async getAllData() {
+                    try {
+                        const projectsRef = ref(this.db, 'proyectos');
+                        const snapshot = await get(projectsRef);
+                        if (snapshot.exists()) {
+                            const firebaseData = snapshot.val();
+                            console.log('🔥 Datos raw de Firebase:', firebaseData);
+                            
+                            // Verificar si tiene la estructura correcta
+                            if (firebaseData.data && Array.isArray(firebaseData.data)) {
+                                console.log(`🔥 ✅ Firebase tiene ${firebaseData.data.length} proyectos`);
+                                
+                                // Usar nombres originales si están disponibles
+                                const columns = firebaseData.metadata?.originalColumns || firebaseData.columns || [];
+                                
+                                return {
+                                    columns: columns,
+                                    data: firebaseData.data,
+                                    metadata: firebaseData.metadata || {}
+                                };
+                            } else {
+                                console.log('⚠️ Estructura de Firebase incorrecta:', firebaseData);
+                                return null;
+                            }
+                        } else {
+                            console.log('⚠️ No hay datos en Firebase');
+                            return null;
+                        }
+                    } catch (error) {
+                        console.error('❌ Firebase get error:', error);
+                        return null;
+                    }
+                }
+            };
+            
+            console.log('🔥 Firebase inicializado correctamente en Dashboard');
+        } catch (error) {
+            console.warn('⚠️ Firebase no disponible en Dashboard:', error.message);
+            window.firebaseManager = null;
+        }
+    </script>
+
+    <!-- Firebase Ultra Simple (solución que funciona) -->
+    <script src="firebase-ultra-simple.js"></script>
+    
+    <!-- Sistema de base de datos simplificado (sin localStorage) -->
+    <script src="firebase-manager-universal.js"></script>
+    <script src="database-manager-simple.js"></script>
+    
+    <!-- Helper para compatibilidad de campos -->
+    <script>
+        // Función helper global para obtener valores de campos con ambos formatos
+        window.getFieldValue = function(project, fieldName) {
+            // Primero intentar con el nombre original (con espacios)
+            if (project[fieldName] !== undefined && project[fieldName] !== null && project[fieldName] !== '') {
+                return project[fieldName];
+            }
+            
+            // Luego intentar con guiones bajos
+            const fieldNameUnderscore = fieldName.replace(/\s+/g, '_').replace(/[()]/g, '');
+            if (project[fieldNameUnderscore] !== undefined && project[fieldNameUnderscore] !== null && project[fieldNameUnderscore] !== '') {
+                return project[fieldNameUnderscore];
+            }
+            
+            // Si no encuentra nada, retornar vacío
+            return '';
+        };
+        
+        console.log('✅ Helper de compatibilidad de campos cargado en Dashboard');
+    </script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Montserrat', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0c1a3a, #162b50);
+            color: #333;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            grid-template-rows: 90px 1fr;
+            height: 100vh;
+            gap: 12px;
+            padding: 12px;
+        }
+        
+        header {
+            grid-column: 1 / -1;
+            background: linear-gradient(90deg, #0055A6, #003366);
+            color: white;
+            border-radius: 10px;
+            padding: 12px 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            position: relative;
+        }
+        
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo-img {
+            height: 55px;
+            width: 55px;
+            border-radius: 8px;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+            background: white;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #0055A6;
+        }    
+    
+        .logo-text h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+        }
+        
+        .logo-text p {
+            font-size: 0.8rem;
+            color: #e0e7ff;
+            margin-top: 2px;
+        }
+        
+        .kpi-container {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .kpi-box {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-align: center;
+            min-width: 130px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .kpi-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #E60028;
+        }
+        
+        .kpi-label {
+            font-size: 0.75rem;
+            opacity: 0.9;
+        }
+        
+        .admin-button {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+        
+        .admin-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .panel-left {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        } 
+       
+        .filters-section {
+            background: #f0f5ff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        
+        .filters-section h2 {
+            margin-bottom: 15px;
+            color: #0055A6;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 2px solid #0055A6;
+            padding-bottom: 10px;
+        }
+        
+        .filter-group {
+            margin-bottom: 15px;
+        }
+        
+        .filter-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #003366;
+        }
+        
+        .filter-group select, .filter-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d0d8e8;
+            border-radius: 8px;
+            background: white;
+            font-size: 1rem;
+        }
+        
+        .export-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .export-button {
+            flex: 1;
+            padding: 10px;
+            background: linear-gradient(to right, #0055A6, #003366);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        .export-button:hover {
+            background: linear-gradient(to right, #003366, #001a33);
+        }       
+ 
+        .chart-box {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e0e7ff;
+            margin-bottom: 20px;
+        }
+        
+        .chart-box h3 {
+            margin-bottom: 20px;
+            color: #0055A6;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid #e0e7ff;
+            padding-bottom: 10px;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        
+        .chart-tabs {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .chart-tab {
+            padding: 8px 15px;
+            cursor: pointer;
+            background: #e0e7ff;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+            font-weight: 500;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+        }
+        
+        .chart-tab.active {
+            background: #0055A6;
+            color: white;
+        }
+        
+        .chart-tab:hover {
+            background: #003366;
+            color: white;
+        }
+        
+        .ranking-container {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .ranking-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        .ranking-table th {
+            background: #0055A6;
+            color: white;
+            padding: 10px 8px;
+            text-align: left;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        
+        .ranking-table td {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .ranking-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        .ranking-table tr:hover {
+            background: #eef2ff;
+        }
+        
+        .ranking-table td:first-child {
+            font-weight: bold;
+            color: #0055A6;
+            text-align: center;
+            width: 40px;
+        }
+        
+        .ranking-table td:last-child {
+            font-weight: bold;
+            color: #E60028;
+        }  
+      
+        .panel-right {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            height: 100%;
+        }
+        
+        .map-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            height: 50vh;
+            min-height: 300px;
+        }
+        
+        .map-header {
+            padding: 15px 20px;
+            background: #0055A6;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        #map {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .tabs-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex: 1;
+            min-height: 300px;
+        }
+        
+        .tabs-header {
+            display: flex;
+            background: #0055A6;
+            color: white;
+        }
+        
+        .tab {
+            padding: 15px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            background: white;
+            color: #0055A6;
+            border-bottom: 3px solid #E60028;
+        }
+        
+        .tab-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f9faff;
+        }
+        
+        .tab-panel {
+            display: none;
+        }
+        
+        .tab-panel.active {
+            display: block;
+        }     
+   
+        #projects-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .project-card {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+            border-color: #0055A6;
+        }
+        
+        .project-card.selected {
+            border: 3px solid #E60028;
+            box-shadow: 0 0 20px rgba(230, 0, 40, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .project-card.highlighted {
+            border: 2px solid #f39c12;
+            box-shadow: 0 0 15px rgba(243, 156, 18, 0.4);
+        }
+        
+        .project-header {
+            background: linear-gradient(135deg, #0055A6, #003366);
+            color: white;
+            padding: 15px;
+        }
+        
+        .project-header h3 {
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+        
+        .project-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .project-body {
+            padding: 15px;
+            background: #f8f9fa;
+        }
+        
+        .project-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .project-info div {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .project-info i {
+            color: #0055A6;
+            width: 16px;
+            text-align: center;
+        }
+        
+        .project-capex {
+            font-weight: 700;
+            color: #0055A6;
+            font-size: 1.2rem;
+            text-align: center;
+            padding: 10px;
+            background: #e8f4ff;
+            border-radius: 8px;
+            margin-top: 10px;
+        }  
+      
+        /* Modal de administración */
+        .admin-modal {
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .admin-modal-content {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 8px;
+            width: 400px;
+            max-width: 90%;
+            position: relative;
+        }
+        
+        .admin-modal-content h2,
+        .admin-modal-content h3 {
+            margin-bottom: 10px;
+            color: #0055A6;
+        }
+        
+        .admin-modal-content label {
+            display: block;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+        
+        .admin-modal-content input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        .admin-modal-content button {
+            width: 100%;
+            padding: 8px;
+            margin-top: 15px;
+            background: #0055A6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .admin-modal-content button:hover {
+            background: #003366;
+        }
+        
+        .admin-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            font-size: 18px;
+            color: #888;
+        }
+        
+        .admin-close:hover {
+            color: #E60028;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #2ecc71;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateX(150%);
+            transition: transform 0.5s ease;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .notification.error {
+            background: #e74c3c;
+        }
+        
+        /* ==================== RESPONSIVE DESIGN ==================== */
+        
+        /* Tablets y pantallas medianas */
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 350px 1fr;
+                gap: 10px;
+                padding: 10px;
+            }
+            
+            .logo-text h1 {
+                font-size: 1.3rem;
+            }
+            
+            .kpi-box {
+                min-width: 110px;
+                padding: 6px 12px;
+            }
+            
+            .kpi-value {
+                font-size: 1.3rem;
+            }
+        }
+        
+        /* Tablets pequeñas */
+        @media (max-width: 992px) {
+            .container {
+                grid-template-columns: 320px 1fr;
+                grid-template-rows: 80px 1fr;
+            }
+            
+            header {
+                padding: 10px 20px;
+            }
+            
+            .logo-container {
+                gap: 10px;
+            }
+            
+            .logo-img {
+                height: 45px;
+                width: 45px;
+                font-size: 18px;
+            }
+            
+            .logo-text h1 {
+                font-size: 1.2rem;
+            }
+            
+            .logo-text p {
+                font-size: 0.7rem;
+            }
+            
+            .kpi-container {
+                gap: 10px;
+            }
+            
+            .kpi-box {
+                min-width: 100px;
+                padding: 5px 10px;
+            }
+            
+            .kpi-value {
+                font-size: 1.2rem;
+            }
+            
+            .kpi-label {
+                font-size: 0.7rem;
+            }
+        }
+        
+        /* Móviles grandes */
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 1fr;
+                height: auto;
+                min-height: 100vh;
+            }
+            
+            header {
+                grid-column: 1;
+                flex-direction: column;
+                gap: 15px;
+                padding: 15px;
+            }
+            
+            .logo-container {
+                justify-content: center;
+            }
+            
+            .kpi-container {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            
+            .panel-left {
+                grid-column: 1;
+                grid-row: 2;
+                max-height: none;
+                overflow-y: visible;
+            }
+            
+            .panel-right {
+                grid-column: 1;
+                grid-row: 3;
+            }
+            
+            .map-container {
+                height: 300px;
+                min-height: 300px;
+            }
+            
+            .tabs-container {
+                min-height: 400px;
+            }
+            
+            .chart-container {
+                height: 250px;
+            }
+            
+            .ranking-container {
+                max-height: 250px;
+            }
+        }
+        
+        /* Móviles pequeños */
+        @media (max-width: 480px) {
+            .container {
+                padding: 8px;
+                gap: 8px;
+            }
+            
+            header {
+                padding: 12px;
+            }
+            
+            .logo-text h1 {
+                font-size: 1.1rem;
+            }
+            
+            .kpi-box {
+                min-width: 90px;
+                padding: 4px 8px;
+            }
+            
+            .kpi-value {
+                font-size: 1.1rem;
+            }
+            
+            .panel-left {
+                padding: 15px;
+            }
+            
+            .filters-section {
+                padding: 15px;
+            }
+            
+            .chart-box {
+                padding: 15px;
+            }
+            
+            .chart-container {
+                height: 200px;
+            }
+            
+            .project-card {
+                margin-bottom: 15px;
+            }
+            
+            .project-header {
+                padding: 12px;
+            }
+            
+            .project-body {
+                padding: 12px;
+            }
+            
+            .tab {
+                padding: 12px 15px;
+                font-size: 0.9rem;
+            }
+            
+            .tab-content {
+                padding: 15px;
+            }
+        }
+        
+        /* Pantallas muy pequeñas */
+        @media (max-width: 360px) {
+            .container {
+                padding: 5px;
+                gap: 5px;
+            }
+            
+            .kpi-container {
+                gap: 5px;
+            }
+            
+            .kpi-box {
+                min-width: 80px;
+                padding: 3px 6px;
+            }
+            
+            .kpi-value {
+                font-size: 1rem;
+            }
+            
+            .kpi-label {
+                font-size: 0.65rem;
+            }
+            
+            .project-card {
+                min-width: auto;
+            }
+            
+            #projects-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head><body
+>
+    <!-- Notificación -->
+    <div class="notification" id="notification">
+        <i class="fas fa-check-circle"></i>
+        <span id="notification-message">Sistema cargado correctamente</span>
+    </div>
+    
+    <!-- Contenedor principal -->
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <div class="logo-img">
+                    <i class="fas fa-industry"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>Dashboard Minero EECOL</h1>
+                    <p>Seguimiento de Proyectos Mineros</p>
+                </div>
+            </div>
+            <div class="kpi-container">
+                <div class="kpi-box">
+                    <div class="kpi-value" id="total-projects">0</div>
+                    <div class="kpi-label">TOTAL PROYECTOS</div>
+                </div>
+                <div class="kpi-box">
+                    <div class="kpi-value" id="total-capex">0</div>
+                    <div class="kpi-label">INVERSIÓN (US$ MM)</div>
+                </div>
+                <div class="kpi-box">
+                    <div class="kpi-value" id="active-projects">0</div>
+                    <div class="kpi-label">PROYECTOS ACTIVOS</div>
+                </div>
+            </div>
+            <!-- Botón de administración -->
+            <div class="admin-panel">
+                <button class="admin-button" onclick="openAdminModal()" title="Paneles de administración">
+                    <i class="fas fa-user-lock"></i>
+                </button>
+            </div>
+        </header> 
+       
+        <!-- Panel izquierdo con filtros y gráficos -->
+        <div class="panel-left">
+            <div class="filters-section">
+                <h2><i class="fas fa-filter"></i> Filtros Avanzados</h2>
+                <div class="filter-group">
+                    <label><i class="fas fa-search"></i> Buscar por texto</label>
+                    <div style="display: flex; gap: 5px;">
+                        <input type="text" id="search-filter" placeholder="Buscar proyectos..." 
+                               style="flex: 1; padding: 10px; border: 1px solid #d0d8e8; border-radius: 8px; background: white; font-size: 1rem;"
+                               onkeypress="if(event.key === 'Enter') applyFilters()">
+                        <button onclick="applyFilters()" style="padding: 10px 15px; background: #0055A6; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    <small style="color: #666; margin-top: 5px; display: block;">Presiona Enter o haz clic en buscar</small>
+                </div>
+                <div class="filter-group">
+                    <label>País</label>
+                    <select id="country-filter" onchange="applyFilters()">
+                        <option value="">Todos los países</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Sector</label>
+                    <select id="sector-filter" onchange="applyFilters()">
+                        <option value="">Todos los sectores</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Etapa</label>
+                    <select id="etapa-filter" onchange="applyFilters()">
+                        <option value="">Todas las etapas</option>
+                    </select>
+                </div>
+                <div class="export-buttons">
+                    <button class="export-button" onclick="window.recargarFirebaseUltraSimple ? window.recargarFirebaseUltraSimple() : location.reload()" style="background: linear-gradient(to right, #28a745, #20c997);">
+                        <i class="fas fa-sync-alt"></i> Recargar Página
+                    </button>
+                    <button class="export-button" onclick="exportToExcel()">
+                        <i class="fas fa-file-excel"></i> Excel
+                    </button>
+                </div>
+            </div>
+            
+            <div class="chart-box">
+                <h3><i class="fas fa-chart-pie"></i> Inversión por Sector</h3>
+                <div class="chart-container">
+                    <canvas id="investment-pie-chart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-box">
+                <h3><i class="fas fa-chart-bar"></i> Top 5 Proyectos por CAPEX</h3>
+                <div class="chart-container">
+                    <canvas id="top-projects-chart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-box">
+                <h3><i class="fas fa-layer-group"></i> Etapas por Sector</h3>
+                <div class="chart-container">
+                    <canvas id="sector-stacked-chart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-box">
+                <h3><i class="fas fa-sitemap"></i> Inversión por Compañía</h3>
+                <div class="chart-container">
+                    <canvas id="company-bar-chart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-box">
+                <h3><i class="fas fa-trophy"></i> Rankings de Empresas</h3>
+                <div class="chart-tabs">
+                    <div class="chart-tab active" data-ranking="projects">Por Proyectos</div>
+                    <div class="chart-tab" data-ranking="investment">Por Inversión</div>
+                    <div class="chart-tab" data-ranking="diversity">Por Diversidad</div>
+                </div>
+                <div class="ranking-container">
+                    <table class="ranking-table" id="ranking-table">
+                        <thead>
+                            <tr id="ranking-header">
+                                <th>#</th>
+                                <th>Empresa</th>
+                                <th>Proyectos</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ranking-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div> 
+       
+        <!-- Panel derecho con mapa y tabs -->
+        <div class="panel-right">
+            <div class="map-container">
+                <div class="map-header">
+                    <h3><i class="fas fa-map-marked-alt"></i> Mapa de Proyectos</h3>
+                    <div class="map-stats">
+                        <span id="map-stats">0 proyectos mostrados</span>
+                    </div>
+                </div>
+                <div id="map"></div>
+            </div>
+            
+            <div class="tabs-container">
+                <div class="tabs-header">
+                    <div class="tab active" data-tab="projects">Proyectos</div>
+                    <div class="tab" data-tab="details">Detalles</div>
+                </div>
+                <div class="tab-content">
+                    <div id="projects-content" class="tab-panel active">
+                        <div id="projects-list"></div>
+                    </div>
+                    <div id="details-content" class="tab-panel">
+                        <div id="project-details">
+                            <p style="text-align: center; color: #666; margin-top: 50px;">
+                                <i class="fas fa-mouse-pointer" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                                Selecciona un proyecto para ver sus detalles
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>  
+  
+    <!-- Modal de administración -->
+    <div id="admin-modal" class="admin-modal">
+        <div class="admin-modal-content">
+            <span class="admin-close" onclick="closeAdminModal()">×</span>
+            
+            <!-- Formulario de login -->
+            <div id="admin-login-form">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <i class="fas fa-user-circle" style="font-size: 3rem; color: #0055A6; margin-bottom: 10px;"></i>
+                    <h2>Acceso al Sistema</h2>
+                    <p style="color: #666; margin-top: 5px;">Ingresa tus credenciales para acceder a más funciones</p>
+                </div>
+                
+                <label for="admin-user">Usuario</label>
+                <input type="text" id="admin-user" autocomplete="username" placeholder="Ingresa tu usuario" onkeypress="if(event.key==='Enter') adminLogin()">
+                <label for="admin-pass">Contraseña</label>
+                <input type="password" id="admin-pass" autocomplete="current-password" placeholder="Ingresa tu contraseña" onkeypress="if(event.key==='Enter') adminLogin()">
+                <button onclick="adminLogin()">
+                    <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+                </button>
+                <p id="admin-error" style="color:#E60028; display:none; margin-top:10px; text-align: center;">
+                    <i class="fas fa-exclamation-triangle"></i> Credenciales incorrectas
+                </p>
+                
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; text-align: center;">
+                    <p style="color: #666; font-size: 0.9rem; margin-bottom: 10px;">Acceso como invitado:</p>
+                    <button onclick="setGuestAccess()" style="background: #6c757d; width: 100%;">
+                        <i class="fas fa-eye"></i> Continuar como Invitado
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Menú de funciones y navegación -->
+            <div id="admin-links" style="display:none;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <i class="fas fa-crown" style="font-size: 2.5rem; color: #0055A6; margin-bottom: 10px;"></i>
+                    <h3>Panel de Control</h3>
+                    <p id="user-role-display" style="color: #666; font-size: 0.9rem;"></p>
+                </div>
+                
+                <!-- Información del usuario -->
+                <div id="user-info-dashboard" style="background: rgba(88, 181, 255, 0.1); border: 1px solid rgba(88, 181, 255, 0.3); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <strong style="color: #0055A6;">Usuario:</strong>
+                        <span id="dashboard-user-name" style="color: #666; font-family: monospace; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.9rem;">Cargando...</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <strong style="color: #0055A6;">Rol:</strong>
+                        <span id="dashboard-user-role" style="color: #666; font-family: monospace; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.9rem;">Cargando...</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <strong style="color: #0055A6;">Permisos:</strong>
+                        <span id="dashboard-user-permissions" style="color: #666; font-family: monospace; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.9rem;">Cargando...</span>
+                    </div>
+                </div>
+                
+                <!-- Funciones del Dashboard -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: #0055A6; margin-bottom: 10px; font-size: 1rem; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                        <i class="fas fa-tools"></i> Funciones del Dashboard
+                    </h4>
+                    <div style="display: grid; gap: 8px;">
+                        <button onclick="exportToExcel(); closeAdminModal();" style="padding: 8px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            <i class="fas fa-file-excel"></i> Exportar a Excel
+                        </button>
+
+                        <button onclick="reloadData(); closeAdminModal();" style="padding: 8px; background: #17a2b8; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            <i class="fas fa-sync-alt"></i> Recargar Datos
+                        </button>
+
+                    </div>
+                </div>
+                
+                <!-- Navegación entre paneles -->
+                <div id="navigation-links">
+                    <h4 style="color: #0055A6; margin-bottom: 10px; font-size: 1rem; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                        <i class="fas fa-compass"></i> Navegación
+                    </h4>
+                    <!-- Los enlaces se generarán dinámicamente según el rol -->
+                </div>
+                
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; text-align: center;">
+                    <button onclick="logout()" style="background: #dc3545; width: 100%; padding: 8px; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+<script>
+        // Variables globales
+        let projects = [];
+        let map = null;
+        let investmentPieChart = null;
+        let topProjectsChart = null;
+        let sectorStackedChart = null;
+        let companyBarChart = null;
+        let markers = {};
+        let selectedProject = null;
+        let currentTab = 'projects';
+        let currentRanking = 'projects';
+        // Variables de autenticación (ahora manejadas por authSystem)
+        let userRole = 'guest';
+        let userName = 'Invitado';
+        let isLoggedIn = false;
+        
+        const UPDATE_TRIGGER_KEY = 'dashboard_update_trigger';
+        
+        // Actualizar variables locales desde sistema de autenticación
+        function updateAuthState() {
+            if (window.authSystemPro && window.authSystemPro.isAuthenticated()) {
+                const user = window.authSystemPro.getCurrentUser();
+                if (user) {
+                    userRole = user.role;
+                    userName = user.displayName;
+                    isLoggedIn = true;
+                } else {
+                    userRole = 'guest';
+                    userName = 'Invitado';
+                    isLoggedIn = false;
+                }
+            } else {
+                userRole = 'guest';
+                userName = 'Invitado';
+                isLoggedIn = false;
+            }
+            console.log('Estado de autenticación actualizado:', { userRole, userName, isLoggedIn });
+        }
+        
+        // Detectar actualizaciones de datos
+        function setupDataUpdateListener() {
+            let lastUpdateTime = localStorage.getItem(UPDATE_TRIGGER_KEY);
+            
+            // Listener para cambios en localStorage
+            window.addEventListener('storage', (e) => {
+                if (e.key === UPDATE_TRIGGER_KEY || e.key === 'proyectosData') {
+                    console.log('Cambio detectado en localStorage:', e.key);
+                    showNotification('Datos actualizados desde el panel de administración', false);
+                    
+                    setTimeout(() => {
+                        loadData();
+                    }, 500);
+                }
+            });
+            
+            // Polling como respaldo
+            setInterval(() => {
+                const currentUpdateTime = localStorage.getItem(UPDATE_TRIGGER_KEY);
+                if (currentUpdateTime && currentUpdateTime !== lastUpdateTime) {
+                    lastUpdateTime = currentUpdateTime;
+                    console.log('Detectada actualización de datos via polling, recargando...');
+                    showNotification('Datos actualizados, recargando dashboard...', false);
+                    
+                    setTimeout(() => {
+                        loadData();
+                    }, 1000);
+                }
+            }, 3000); // Verificar cada 3 segundos
+            
+            console.log('Sistema de detección de actualizaciones configurado');
+        }
+        
+        // Función para mostrar notificaciones
+        function showNotification(message, isError = false) {
+            const notification = document.getElementById('notification');
+            const messageEl = document.getElementById('notification-message');
+            
+            messageEl.textContent = message;
+            notification.className = 'notification' + (isError ? ' error' : '');
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        // Inicializar mapa
+        function initMap() {
+            map = L.map('map', {
+                center: [-34.6037, -58.3816],
+                zoom: 4,
+                zoomControl: true,
+                scrollWheelZoom: true,
+                doubleClickZoom: true,
+                boxZoom: true,
+                keyboard: true,
+                dragging: true,
+                // Opciones de animación mejoradas
+                fadeAnimation: true,
+                zoomAnimation: true,
+                zoomAnimationThreshold: 4,
+                markerZoomAnimation: true,
+                // Configuración de easing más suave
+                zoomSnap: 0.25,
+                zoomDelta: 0.5
+            });
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 18,
+                minZoom: 2
+            }).addTo(map);
+
+            // Configurar eventos del mapa
+            map.on('click', function(e) {
+                // Deseleccionar proyecto al hacer clic en área vacía
+                if (selectedProject) {
+                    selectedProject = null;
+                    // Resetear todos los marcadores
+                    Object.values(markers).forEach(marker => {
+                        marker.setStyle({ 
+                            weight: 1, 
+                            radius: 8, 
+                            color: '#000',
+                            fillOpacity: 0.8 
+                        });
+                    });
+                    // Remover resaltado de la lista
+                    document.querySelectorAll('.project-card').forEach(card => {
+                        card.classList.remove('selected');
+                    });
+                }
+            });
+        }     
+   
+        // Funciones del modal de administración
+        function openAdminModal() {
+            console.log('Abriendo modal de administración...');
+            
+            const modal = document.getElementById('admin-modal');
+            if (!modal) {
+                console.error('Modal no encontrado');
+                return;
+            }
+            
+            // Actualizar estado de autenticación
+            updateAuthState();
+            
+            modal.style.display = 'flex';
+            
+            console.log('Estado actual:', { isLoggedIn, userName, userRole });
+            
+            if (isLoggedIn && window.authSystemPro && window.authSystemPro.isAuthenticated()) {
+                console.log('Usuario autenticado, mostrando enlaces');
+                showAdminLinks();
+            } else {
+                console.log('Usuario no autenticado, mostrando formulario de login');
+                showLoginForm();
+            }
+        }
+
+        function closeAdminModal() {
+            const modal = document.getElementById('admin-modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function showLoginForm() {
+            document.getElementById('admin-login-form').style.display = 'block';
+            document.getElementById('admin-links').style.display = 'none';
+            document.getElementById('admin-user').value = '';
+            document.getElementById('admin-pass').value = '';
+            document.getElementById('admin-error').style.display = 'none';
+        }
+
+        function showAdminLinks() {
+            console.log('Mostrando enlaces de administración...');
+            
+            const loginForm = document.getElementById('admin-login-form');
+            const adminLinks = document.getElementById('admin-links');
+            const userRoleDisplay = document.getElementById('user-role-display');
+            
+            if (loginForm) loginForm.style.display = 'none';
+            if (adminLinks) adminLinks.style.display = 'block';
+            
+            if (userRoleDisplay) {
+                const roleText = getRoleDisplayName();
+                userRoleDisplay.textContent = `${userName} (${roleText})`;
+                console.log('Rol mostrado:', `${userName} (${roleText})`);
+            }
+            
+            // Actualizar información del usuario en el dashboard
+            updateDashboardUserInfo();
+            
+            generateNavigationLinks();
+        }
+        
+        // Función para actualizar información del usuario en el modal del dashboard
+        function updateDashboardUserInfo() {
+            if (window.authSystemPro && window.authSystemPro.isAuthenticated()) {
+                const user = window.authSystemPro.getCurrentUser();
+                if (user) {
+                    const userNameEl = document.getElementById('dashboard-user-name');
+                    const userRoleEl = document.getElementById('dashboard-user-role');
+                    const userPermissionsEl = document.getElementById('dashboard-user-permissions');
+                    
+                    if (userNameEl) userNameEl.textContent = user.displayName;
+                    if (userRoleEl) userRoleEl.textContent = user.role.toUpperCase();
+                    if (userPermissionsEl) userPermissionsEl.textContent = user.permissions.join(', ');
+                }
+            } else {
+                // Usar datos locales si no hay sistema de autenticación
+                const userNameEl = document.getElementById('dashboard-user-name');
+                const userRoleEl = document.getElementById('dashboard-user-role');
+                const userPermissionsEl = document.getElementById('dashboard-user-permissions');
+                
+                if (userNameEl) userNameEl.textContent = userName || 'Usuario Anónimo';
+                if (userRoleEl) userRoleEl.textContent = (userRole || 'guest').toUpperCase();
+                if (userPermissionsEl) userPermissionsEl.textContent = userRole === 'root' ? 'Todos' : userRole === 'admin' ? 'Admin, Dashboard' : 'Dashboard';
+            }
+        }
+
+        function adminLogin() {
+            console.log('=== INICIO LOGIN ===');
+            
+            const userInput = document.getElementById('admin-user');
+            const passInput = document.getElementById('admin-pass');
+            
+            if (!userInput || !passInput) {
+                console.error('Elementos de input no encontrados');
+                showNotification('Error: Elementos de login no encontrados', true);
+                return;
+            }
+            
+            const username = (userInput.value || '').trim();
+            const password = (passInput.value || '').trim();
+            
+            console.log('Credenciales:', { username, password: password ? '***' : 'vacío' });
+            
+            // Usar sistema de autenticación profesional
+            if (window.authSystemPro) {
+                try {
+                    const loginResult = window.authSystemPro.login(username, password);
+                    if (loginResult.success) {
+                        console.log('✅ Login exitoso con authSystemPro');
+                        
+                        const user = window.authSystemPro.getCurrentUser();
+                        userRole = user.role;
+                        userName = user.displayName;
+                        isLoggedIn = true;
+                        
+                        console.log('Estado actualizado:', { userRole, userName, isLoggedIn });
+                        
+                        // Limpiar campos
+                        userInput.value = '';
+                        passInput.value = '';
+                        
+                        // Ocultar error
+                        const errorElement = document.getElementById('admin-error');
+                        if (errorElement) {
+                            errorElement.style.display = 'none';
+                        }
+                        
+                        // Mostrar panel de administración
+                        showAdminLinks();
+                        showNotification(`Bienvenido ${userName}`);
+                        return;
+                    } else {
+                        console.log('❌ Login falló:', loginResult.message);
+                        const errorElement = document.getElementById('admin-error');
+                        if (errorElement) {
+                            errorElement.style.display = 'block';
+                            errorElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${loginResult.message}`;
+                        }
+                        showNotification(loginResult.message, true);
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Error en authSystemPro:', error);
+                }
+            }
+            
+            // Fallback: Verificar credenciales directamente si authSystem no está disponible
+            const validCredentials = {
+                'root': 'propuestaadmin',
+                'admin': 'propuestaadmin', 
+                'analyst': 'analyst123'
+            };
+            
+            if (validCredentials[username] && validCredentials[username] === password) {
+                console.log('✅ Credenciales válidas');
+                
+                // Actualizar variables locales
+                userRole = username;
+                userName = username === 'root' ? 'Administrador Root' : 
+                          username === 'admin' ? 'Administrador' : 'Analista';
+                isLoggedIn = true;
+                
+                console.log('Estado actualizado:', { userRole, userName, isLoggedIn });
+                
+                // Intentar usar sistema de autenticación si está disponible
+                if (window.authSystemPro) {
+                    try {
+                        window.authSystemPro.authenticate(username, password);
+                        console.log('Sistema de autenticación actualizado');
+                    } catch (error) {
+                        console.warn('Error en sistema de autenticación:', error);
+                    }
+                }
+                
+                // Limpiar campos
+                userInput.value = '';
+                passInput.value = '';
+                
+                // Ocultar error
+                const errorElement = document.getElementById('admin-error');
+                if (errorElement) {
+                    errorElement.style.display = 'none';
+                }
+                
+                // Mostrar panel de administración
+                showAdminLinks();
+                showNotification(`Bienvenido ${userName}`);
+                
+            } else {
+                console.log('❌ Credenciales inválidas');
+                const errorElement = document.getElementById('admin-error');
+                if (errorElement) {
+                    errorElement.style.display = 'block';
+                }
+                showNotification('Credenciales incorrectas', true);
+            }
+        }
+
+        function setGuestAccess() {
+            updateAuthState(); // Solo actualizar estado, no cambiar autenticación
+            showAdminLinks();
+            showNotification('Acceso como invitado activado');
+        }
+
+        function logout() {
+            if (window.authSystemPro) {
+                window.authSystemPro.logout();
+            }
+            updateAuthState();
+            closeAdminModal();
+            showNotification('Sesión cerrada correctamente');
+        }
+
+        function getRoleDisplayName() {
+            const roleNames = {
+                'guest': 'Invitado',
+                'analyst': 'Analista',
+                'admin': 'Administrador',
+                'root': 'Super Administrador'
+            };
+            return roleNames[userRole] || 'Usuario';
+        }
+
+        function generateNavigationLinks() {
+            console.log('Generando enlaces de navegación...');
+            
+            const linksContainer = document.getElementById('navigation-links');
+            if (!linksContainer) {
+                console.error('Contenedor de enlaces no encontrado');
+                return;
+            }
+            
+            // Enlaces según el rol
+            let links = [
+                {
+                    title: 'Inicio Rápido',
+                    url: 'inicio-rapido.html',
+                    icon: 'fas fa-home',
+                    color: '#28a745'
+                },
+                {
+                    title: 'Dashboard Ejecutivo',
+                    url: 'Dashboard Ejecutivo - Proyectos Mineros.html',
+                    icon: 'fas fa-tachometer-alt',
+                    color: '#0055A6'
+                }
+            ];
+            
+            if (userRole === 'root' || userRole === 'admin') {
+                links.push({
+                    title: 'Panel de Administración',
+                    url: 'Panel-Admin-Nuevo.html',
+                    target: '_blank',
+                    icon: 'fas fa-cogs',
+                    color: '#dc3545'
+                });
+            }
+            
+            if (userRole === 'root' || userRole === 'admin' || userRole === 'analyst') {
+                links.push({
+                    title: 'Diagnóstico del Sistema',
+                    url: 'diagnostico-completo.html',
+                    target: '_blank',
+                    icon: 'fas fa-stethoscope',
+                    color: '#6f42c1'
+                });
+            }
+            
+            // Agregar enlace de logout
+            links.push({
+                title: 'Cerrar Sesión',
+                url: 'login-profesional.html',
+                icon: 'fas fa-sign-out-alt',
+                color: '#6c757d'
+            });
+            
+            console.log('Enlaces generados:', links);
+            
+            const linksHTML = links.map(link => `
+                <div style="margin-bottom: 8px;">
+                    <a href="${link.url}" ${link.target ? `target="${link.target}"` : ''} 
+                       style="display: block; padding: 10px; background: ${link.color}; color: white; 
+                              text-decoration: none; border-radius: 5px; text-align: center; 
+                              transition: all 0.3s; font-weight: 500;">
+                        <i class="${link.icon}" style="margin-right: 8px;"></i>
+                        ${link.title}
+                    </a>
+                </div>
+            `).join('');
+            
+            // Buscar el h4 y mantenerlo
+            const h4Element = linksContainer.querySelector('h4');
+            if (h4Element) {
+                linksContainer.innerHTML = h4Element.outerHTML + linksHTML;
+            } else {
+                linksContainer.innerHTML = `
+                    <h4 style="color: #0055A6; margin-bottom: 10px; font-size: 1rem; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                        <i class="fas fa-compass"></i> Navegación
+                    </h4>
+                    ${linksHTML}
+                `;
+            }
+            
+            console.log('Enlaces insertados en el DOM');
+        }
+
+        function getLinksForRole() {
+            const baseLinks = [
+                {
+                    title: 'Dashboard Ejecutivo',
+                    url: 'Dashboard Ejecutivo - Proyectos Mineros.html',
+                    icon: 'fas fa-tachometer-alt',
+                    color: '#0055A6'
+                }
+            ];
+
+            switch(userRole) {
+                case 'root':
+                    return [
+                        ...baseLinks,
+                        {
+                            title: 'Panel de Administración',
+                            url: 'Admin — Reporte Minero EECOL.html',
+                            target: '_blank',
+                            icon: 'fas fa-cogs',
+                            color: '#dc3545'
+                        },
+                        {
+                            title: 'Sistema de Reportería',
+                            url: 'Reporte de Proyectos Mineros.html',
+                            target: '_blank',
+                            icon: 'fas fa-file-alt',
+                            color: '#28a745'
+                        }
+                    ];
+                case 'admin':
+                    return [
+                        ...baseLinks,
+                        {
+                            title: 'Panel de Administración',
+                            url: 'Admin — Reporte Minero EECOL.html',
+                            target: '_blank',
+                            icon: 'fas fa-cogs',
+                            color: '#dc3545'
+                        },
+                        {
+                            title: 'Sistema de Reportería',
+                            url: 'Reporte de Proyectos Mineros.html',
+                            target: '_blank',
+                            icon: 'fas fa-file-alt',
+                            color: '#28a745'
+                        }
+                    ];
+                case 'analyst':
+                    return [
+                        ...baseLinks,
+                        {
+                            title: 'Sistema de Reportería',
+                            url: 'Reporte de Proyectos Mineros.html',
+                            target: '_blank',
+                            icon: 'fas fa-file-alt',
+                            color: '#28a745'
+                        }
+                    ];
+                default:
+                    return baseLinks;
+            }
+        }
+
+        // Función para forzar recarga (compatible con Netlify)
+        async function forceFirebaseReload() {
+            console.log('🔥 Forzando recarga (compatible Netlify)...');
+            showNotification('🔥 Conectando con Firebase...', false);
+            
+            try {
+                // Limpiar cache local
+                localStorage.removeItem('proyectosData');
+                localStorage.removeItem('minero_database');
+                
+                // Usar función directa
+                if (typeof window.cargarDatosFirebase === 'function') {
+                    const exito = await window.cargarDatosFirebase();
+                    if (exito) {
+                        console.log('🔥 ✅ Datos cargados exitosamente');
+                        return;
+                    }
+                }
+                
+                // Si Firebase falla, intentar proyectos.json local
+                console.log('📁 Intentando proyectos.json como backup...');
+                try {
+                    const response = await fetch('./proyectos.json?' + Date.now()); // Cache busting
+                    if (response.ok) {
+                        const jsonData = await response.json();
+                        if (jsonData.data && jsonData.data.length > 0) {
+                            console.log(`📁 ✅ proyectos.json: ${jsonData.data.length} proyectos`);
+                            
+                            // Guardar en localStorage
+                            localStorage.setItem('proyectosData', JSON.stringify(jsonData));
+                            
+                            const formattedData = {
+                                columns: jsonData.columns,
+                                rows: jsonData.data,
+                                data: jsonData.data
+                            };
+                            
+                            processProjectData(formattedData);
+                            showNotification(`✅ ${jsonData.data.length} proyectos cargados desde archivo local`, false);
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    console.log('⚠️ No se pudo cargar proyectos.json:', error.message);
+                }
+                
+                throw new Error('No se pudieron cargar datos desde ninguna fuente');
+                
+            } catch (error) {
+                console.error('❌ Error general:', error);
+                showNotification('❌ Error: ' + error.message + ' - Usando datos básicos', true);
+                loadBasicExampleData();
+            }
+        }
+        
+        // Aplicar filtros
+        function applyFilters() {
+            console.log('=== APLICANDO FILTROS ===');
+            console.log('Total proyectos disponibles:', projects.length);
+            
+            const searchInput = document.getElementById('search-filter');
+            const searchText = (searchInput?.value || '').toLowerCase();
+            const country = document.getElementById('country-filter')?.value || '';
+            const sector = document.getElementById('sector-filter')?.value || '';
+            const etapa = document.getElementById('etapa-filter')?.value || '';
+            
+            console.log('Filtros:', { searchText, country, sector, etapa });
+            
+            if (projects.length === 0) {
+                console.warn('No hay proyectos para filtrar');
+                showNotification('No hay proyectos cargados', true);
+                return;
+            }
+            
+            let filteredProjects = projects.filter(project => {
+                // Filtro de búsqueda por texto
+                if (searchText) {
+                    const searchableText = `
+                        ${project.name} 
+                        ${project.sector} 
+                        ${project.area} 
+                        ${project.país} 
+                        ${project.etapa}
+                        ${project.tipo}
+                        ${project.productos}
+                        ${(project.companias || []).join(' ')}
+                    `.toLowerCase();
+                    
+                    if (!searchableText.includes(searchText)) {
+                        return false;
+                    }
+                }
+                
+                // Filtro por país
+                if (country && project.país !== country) {
+                    return false;
+                }
+                
+                // Filtro por sector
+                if (sector && project.sector !== sector) {
+                    return false;
+                }
+                
+                // Filtro por etapa
+                if (etapa && project.etapa !== etapa) {
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            console.log(`Filtros aplicados: ${filteredProjects.length} de ${projects.length} proyectos`);
+            
+            // Actualizar visualización con proyectos filtrados
+            renderFilteredProjects(filteredProjects);
+            updateMapWithFiltered(filteredProjects);
+            
+            showNotification(`${filteredProjects.length} proyectos encontrados`);
+        }
+        
+        // Renderizar proyectos filtrados
+        function renderFilteredProjects(filteredProjects) {
+            const container = document.getElementById('projects-list');
+            if (!container) return;
+
+            if (filteredProjects.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 50px; color: #666;">
+                        <i class="fas fa-search" style="font-size: 3rem; margin-bottom: 20px; color: #ccc;"></i>
+                        <h3 style="margin-bottom: 10px; color: #999;">No se encontraron proyectos</h3>
+                        <p style="margin-bottom: 20px;">Intenta con otros criterios de búsqueda.</p>
+                        <button onclick="clearAllFilters()" style="padding: 10px 20px; background: #0055A6; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            <i class="fas fa-eraser"></i> Limpiar Filtros
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filteredProjects.map(project => `
+                <div class="project-card" onclick="selectProject('${project.name.replace(/'/g, "\\'")}')">
+                    <div class="project-header">
+                        <h3>${project.name}</h3>
+                        <div class="project-status">${project.etapa}</div>
+                    </div>
+                    <div class="project-body">
+                        <div class="project-info">
+                            <div><i class="fas fa-industry"></i> ${project.sector}</div>
+                            <div><i class="fas fa-globe-americas"></i> ${project.país}</div>
+                            <div><i class="fas fa-map-marker-alt"></i> ${project.area}</div>
+                            <div><i class="fas fa-cog"></i> ${project.estado}</div>
+                        </div>
+                        <div class="project-capex">
+                            ${project.capex.toLocaleString('es-ES')} MM US$
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Actualizar mapa con proyectos filtrados
+        function updateMapWithFiltered(filteredProjects) {
+            if (!map) return;
+            
+            // Ocultar todos los marcadores
+            Object.values(markers).forEach(marker => {
+                marker.setStyle({ fillOpacity: 0.1, opacity: 0.3 });
+            });
+            
+            // Mostrar solo los filtrados
+            filteredProjects.forEach(project => {
+                const marker = markers[project.name];
+                if (marker) {
+                    marker.setStyle({ fillOpacity: 0.8, opacity: 1 });
+                }
+            });
+            
+            document.getElementById('map-stats').textContent = `${filteredProjects.length} proyectos mostrados`;
+        }
+        
+        function clearAllFilters() {
+            const searchInput = document.getElementById('search-filter');
+            const countryFilter = document.getElementById('country-filter');
+            const sectorFilter = document.getElementById('sector-filter');
+            const etapaFilter = document.getElementById('etapa-filter');
+            
+            if (searchInput) searchInput.value = '';
+            if (countryFilter) countryFilter.value = '';
+            if (sectorFilter) sectorFilter.value = '';
+            if (etapaFilter) etapaFilter.value = '';
+            
+            // Restaurar todos los proyectos
+            renderProjectsList();
+            
+            // Restaurar marcadores
+            if (map) {
+                Object.values(markers).forEach(marker => {
+                    marker.setStyle({ fillOpacity: 0.8, opacity: 1, weight: 1, radius: 8, color: '#000' });
+                });
+                document.getElementById('map-stats').textContent = `${projects.length} proyectos mostrados`;
+            }
+            
+            showNotification('Filtros limpiados correctamente');
+        }
+        
+        // Funciones de exportación
+        function exportToExcel() {
+            showNotification('Exportando datos a Excel...', false);
+        }
+        
+
+        
+
+        
+        async function reloadData() {
+            console.log('🔄 Recarga manual de datos solicitada');
+            showNotification('Recargando datos desde Firebase...', false);
+            
+            try {
+                // Forzar recarga desde Firebase
+                if (window.dbManager) {
+                    console.log('🔄 Forzando recarga desde Firebase...');
+                    await window.dbManager.loadDatabase();
+                    
+                    const dbData = window.dbManager.getAllData();
+                    console.log('📊 Datos después de recarga:', dbData);
+                    
+                    if (dbData.data && dbData.data.length > 0) {
+                        showNotification(`✅ Datos recargados: ${dbData.data.length} proyectos desde ${dbData.metadata.source}`, false);
+                    } else {
+                        showNotification('⚠️ No se encontraron datos después de recargar', true);
+                    }
+                }
+                
+                // Recargar interfaz
+                setTimeout(() => {
+                    loadData();
+                }, 500);
+                
+            } catch (error) {
+                console.error('❌ Error recargando datos:', error);
+                showNotification('❌ Error recargando datos: ' + error.message, true);
+            }
+        }
+
+        async function debugDatabase() {
+            console.log('🐛 Debug de base de datos iniciado');
+            
+            // Diagnóstico completo en consola
+            console.log('=== DIAGNÓSTICO COMPLETO ===');
+            
+            // 1. Verificar Firebase Manager
+            if (window.firebaseManager) {
+                console.log('✅ Firebase Manager disponible');
+                try {
+                    const firebaseData = await window.firebaseManager.getAllData();
+                    console.log('🔥 Datos desde Firebase:', firebaseData);
+                    if (firebaseData && firebaseData.data) {
+                        console.log(`📊 Firebase tiene ${firebaseData.data.length} proyectos`);
+                    } else {
+                        console.log('⚠️ Firebase no tiene datos o estructura incorrecta');
+                    }
+                } catch (error) {
+                    console.error('❌ Error accediendo Firebase:', error);
+                }
+            } else {
+                console.error('❌ Firebase Manager no disponible');
+            }
+            
+            // 2. Verificar Database Manager
+            if (typeof window.dbManager !== 'undefined') {
+                console.log('✅ Database Manager disponible');
+                const dbData = window.dbManager.getAllData();
+                console.log('🗄️ Datos desde Database Manager:', dbData);
+                console.log('📊 Metadata:', dbData.metadata);
+                console.log('🔢 Total registros:', dbData.data.length);
+                
+                // Forzar recarga desde Firebase
+                console.log('🔄 Forzando recarga desde Firebase...');
+                await window.dbManager.loadDatabase();
+                const reloadedData = window.dbManager.getAllData();
+                console.log('🔄 Datos después de recarga:', reloadedData);
+                
+                showNotification(`Debug: DB tiene ${dbData.data.length} registros, después de recarga: ${reloadedData.data.length}`, false);
+            } else {
+                console.error('❌ Database Manager no disponible');
+                showNotification('Database Manager no disponible', true);
+            }
+            
+            // 3. Verificar localStorage
+            const localData = localStorage.getItem('minero_database');
+            if (localData) {
+                try {
+                    const parsed = JSON.parse(localData);
+                    console.log('💾 Datos en localStorage:', parsed);
+                    console.log(`💾 localStorage tiene ${parsed.data?.length || 0} registros`);
+                } catch (e) {
+                    console.error('❌ Error parseando localStorage:', e);
+                }
+            } else {
+                console.log('⚠️ No hay datos en localStorage');
+            }
+            
+            // Abrir herramienta de diagnóstico completo
+            window.open('diagnostico-firebase.html', '_blank');
+        }
+        
+        async function forceLoadSampleData() {
+            console.log('🔄 Forzando carga de datos de ejemplo a Firebase...');
+            showNotification('Cargando datos de ejemplo a Firebase...', false);
+            
+            if (!window.firebaseManager) {
+                showNotification('Firebase no está disponible', true);
+                return;
+            }
+            
+            const sampleData = {
+                columns: [
+                    "Nombre del proyecto",
+                    "Sector", 
+                    "Área",
+                    "País",
+                    "Etapa",
+                    "Compañías relacionadas",
+                    "Capex (US$ mn)",
+                    "Tipo de proyecto",
+                    "Productos y Servicios",
+                    "Estado",
+                    "Latitud",
+                    "Longitud",
+                    "Descripcion"
+                ],
+                data: [
+                    {
+                        "Nombre del proyecto": "Mina Los Andes",
+                        "Sector": "Cobre",
+                        "Área": "Región de Antofagasta",
+                        "País": "Chile",
+                        "Etapa": "Producción",
+                        "Compañías relacionadas": "CODELCO, BHP Billiton",
+                        "Capex (US$ mn)": 2500,
+                        "Tipo de proyecto": "Expansión",
+                        "Productos y Servicios": "Extracción de cobre, Procesamiento de minerales",
+                        "Estado": "Activo",
+                        "Latitud": -24.5,
+                        "Longitud": -69.25,
+                        "Descripcion": "Proyecto de expansión de mina de cobre con tecnología de punta"
+                    },
+                    {
+                        "Nombre del proyecto": "Complejo Litio Atacama",
+                        "Sector": "Litio",
+                        "Área": "Salar de Atacama",
+                        "País": "Chile",
+                        "Etapa": "Producción",
+                        "Compañías relacionadas": "SQM, Albemarle",
+                        "Capex (US$ mn)": 3200,
+                        "Tipo de proyecto": "Expansión de capacidad",
+                        "Productos y Servicios": "Extracción de litio, Procesamiento de salmueras",
+                        "Estado": "Activo",
+                        "Latitud": -23.8,
+                        "Longitud": -68.2,
+                        "Descripcion": "Expansión del complejo de extracción de litio más grande de Chile"
+                    },
+                    {
+                        "Nombre del proyecto": "Proyecto Cobre Norte",
+                        "Sector": "Cobre",
+                        "Área": "Región de Tarapacá",
+                        "País": "Chile",
+                        "Etapa": "Desarrollo",
+                        "Compañías relacionadas": "Antofagasta Minerals",
+                        "Capex (US$ mn)": 1800,
+                        "Tipo de proyecto": "Nuevo proyecto",
+                        "Productos y Servicios": "Extracción de cobre, Concentrado",
+                        "Estado": "En desarrollo",
+                        "Latitud": -20.2,
+                        "Longitud": -69.8,
+                        "Descripcion": "Nuevo proyecto de cobre en el norte de Chile"
+                    }
+                ],
+                metadata: {
+                    lastUpdate: new Date().toISOString(),
+                    totalRecords: 3,
+                    version: '1.0.0',
+                    source: 'dashboard-sample'
+                }
+            };
+            
+            try {
+                const success = await window.firebaseManager.saveData(sampleData);
+                if (success) {
+                    showNotification('✅ Datos cargados a Firebase correctamente', false);
+                    
+                    // Actualizar database manager local también
+                    if (window.dbManager) {
+                        window.dbManager.data = sampleData;
+                        window.dbManager.saveDatabase();
+                    }
+                    
+                    // Recargar datos en el dashboard
+                    setTimeout(() => {
+                        loadData();
+                    }, 1000);
+                } else {
+                    showNotification('❌ Error cargando datos a Firebase', true);
+                }
+            } catch (error) {
+                console.error('Error cargando datos:', error);
+                showNotification('❌ Error: ' + error.message, true);
+            }
+        }
+        
+        async function forceFirebaseLoad() {
+            console.log('🔥 Forzando carga directa desde Firebase...');
+            showNotification('Forzando carga desde Firebase...', false);
+            
+            if (!window.firebaseManager) {
+                showNotification('❌ Firebase no está disponible', true);
+                return;
+            }
+            
+            try {
+                // Limpiar localStorage para forzar carga desde Firebase
+                localStorage.removeItem('minero_database');
+                console.log('🗑️ localStorage limpiado');
+                
+                // Cargar directamente desde Firebase
+                const firebaseData = await window.firebaseManager.getAllData();
+                console.log('🔥 Datos obtenidos directamente de Firebase:', firebaseData);
+                
+                if (firebaseData && firebaseData.data && firebaseData.data.length > 0) {
+                    // Actualizar database manager
+                    if (window.dbManager) {
+                        window.dbManager.data = firebaseData;
+                        await window.dbManager.saveDatabase();
+                    }
+                    
+                    showNotification(`✅ Cargados ${firebaseData.data.length} proyectos desde Firebase`, false);
+                    
+                    // Recargar dashboard
+                    setTimeout(() => {
+                        loadData();
+                    }, 1000);
+                    
+                } else {
+                    showNotification('⚠️ No hay datos en Firebase o estructura incorrecta', true);
+                    console.log('⚠️ Estructura de datos Firebase:', firebaseData);
+                }
+                
+            } catch (error) {
+                console.error('❌ Error forzando carga desde Firebase:', error);
+                showNotification('❌ Error: ' + error.message, true);
+            }
+        }
+        
+        // Cargar datos - SIMPLIFICADO
+        async function loadData() {
+            console.log('🚀 Sistema de carga simplificado - Firebase Ultra Simple se encarga');
+            
+            // Verificar si ya hay datos cargados por Firebase Ultra Simple
+            if (window.projects && window.projects.length > 0) {
+                console.log('🚀 ✅ Datos ya disponibles, actualizando interfaz...');
+                projects = window.projects;
+                updateAllInterface();
+                return;
+            }
+            
+            // Si no hay datos después de 3 segundos, cargar datos básicos
+            setTimeout(() => {
+                if (!window.projects || window.projects.length === 0) {
+                    console.log('📝 No hay datos después de 3s, usando datos básicos...');
+                    loadBasicExampleData();
+                }
+            }, 3000);
+        }
+        
+        // Función para actualizar toda la interfaz
+        function updateAllInterface() {
+            console.log('🔄 Actualizando toda la interfaz...');
+            
+            // Sincronizar datos si están disponibles en window.projects
+            if (window.projects && window.projects.length > 0) {
+                projects = window.projects;
+                console.log(`🔄 Sincronizados ${projects.length} proyectos`);
+            }
+            
+            // Actualizar todo en orden
+            updateKPIs();
+            updateFilters();
+            updateCharts();
+            updateMap();
+            renderProjectsList();
+            updateRanking();
+            
+            console.log('✅ Interfaz actualizada completamente');
+        }
+        
+        // Función para sincronizar datos desde Firebase Ultra Simple
+        window.syncFirebaseData = function() {
+            console.log('🔄 Sincronizando datos desde Firebase Ultra Simple...');
+            if (window.projects && window.projects.length > 0) {
+                projects = window.projects;
+                updateAllInterface();
+                console.log(`✅ ${projects.length} proyectos sincronizados`);
+                return true;
+            }
+            return false;
+        };
+        
+        // Cargar datos desde localStorage
+        function loadDataFromLocalStorage() {
+            try {
+                const LS_KEY = 'proyectosData'; // Mismo key que usa el panel de administración
+                const savedData = localStorage.getItem(LS_KEY);
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+                    console.log('Datos encontrados en localStorage:', data);
+                    return data;
+                }
+            } catch (error) {
+                console.error('Error cargando desde localStorage:', error);
+            }
+            return null;
+        }
+        
+        // Procesar datos del proyecto (desde localStorage o JSON)
+        function processProjectData(jsonData) {
+            if (!jsonData.rows || !Array.isArray(jsonData.rows)) {
+                console.error('Formato de datos inválido:', jsonData);
+                loadFallbackData();
+                return;
+            }
+            
+            // Convertir los datos al formato esperado por el dashboard
+            // Manejar tanto nombres con espacios como con guiones bajos
+            projects = jsonData.rows.map(row => ({
+                name: row["Nombre del proyecto"] || row["Nombre_del_proyecto"] || 'Sin nombre',
+                sector: row["Sector"] || 'Sin sector',
+                area: row["Área"] || row["Area"] || 'Sin área',
+                país: row["País"] || row["Pais"] || 'Sin país',
+                etapa: row["Etapa"] || 'Sin etapa',
+                companias: (row["Compañías relacionadas"] || row["Compañias_relacionadas"] || '') ? 
+                    (row["Compañías relacionadas"] || row["Compañias_relacionadas"]).split(', ').slice(0, 3) : [],
+                capex: parseFloat(row["Capex (US$ mn)"] || row["Capex_US_mn"] || 0) || 0,
+                tipo: row["Tipo de proyecto"] || row["Tipo_de_proyecto"] || 'Sin tipo',
+                productos: row["Productos y Servicios"] || row["Productos_y_Servicios"] || 'Sin productos',
+                estado: row["Estado"] || 'Sin estado',
+                coordinates: [
+                    parseFloat(row["Latitud"] || 0) || 0,
+                    parseFloat(row["Longitud"] || 0) || 0
+                ],
+                descripcion: row["Descripcion"] || row["Descripción"] || ""
+            }));
+            
+            console.log(`Total proyectos procesados: ${projects.length}`);
+            
+            // Actualizar filtros con los datos reales
+            updateFilters();
+            
+            // Actualizar interfaz
+            updateKPIs();
+            updateCharts();
+            updateMap();
+            renderProjectsList();
+            updateRanking();
+            
+            showNotification(`Dashboard cargado: ${projects.length} proyectos`);
+        }
+        
+        // Datos básicos de ejemplo que SIEMPRE funcionan
+        function loadBasicExampleData() {
+            console.log('📝 Cargando datos básicos de ejemplo...');
+            
+            const basicData = {
+                columns: [
+                    "Nombre del proyecto",
+                    "Sector", 
+                    "Área",
+                    "País",
+                    "Etapa",
+                    "Compañías relacionadas",
+                    "Capex (US$ mn)",
+                    "Tipo de proyecto",
+                    "Productos y Servicios",
+                    "Estado",
+                    "Latitud",
+                    "Longitud",
+                    "Descripcion"
+                ],
+                rows: [
+                    {
+                        "Nombre del proyecto": "Mina Los Andes",
+                        "Sector": "Cobre",
+                        "Área": "Región de Antofagasta",
+                        "País": "Chile",
+                        "Etapa": "Producción",
+                        "Compañías relacionadas": "CODELCO, BHP Billiton",
+                        "Capex (US$ mn)": 2500,
+                        "Tipo de proyecto": "Expansión",
+                        "Productos y Servicios": "Extracción de cobre, Procesamiento de minerales",
+                        "Estado": "Activo",
+                        "Latitud": -24.5,
+                        "Longitud": -69.25,
+                        "Descripcion": "Proyecto de expansión de mina de cobre con tecnología de punta"
+                    },
+                    {
+                        "Nombre del proyecto": "Complejo Litio Atacama",
+                        "Sector": "Litio",
+                        "Área": "Salar de Atacama",
+                        "País": "Chile",
+                        "Etapa": "Producción",
+                        "Compañías relacionadas": "SQM, Albemarle",
+                        "Capex (US$ mn)": 3200,
+                        "Tipo de proyecto": "Expansión de capacidad",
+                        "Productos y Servicios": "Extracción de litio, Procesamiento de salmueras",
+                        "Estado": "Activo",
+                        "Latitud": -23.8,
+                        "Longitud": -68.2,
+                        "Descripcion": "Expansión del complejo de extracción de litio más grande de Chile"
+                    },
+                    {
+                        "Nombre del proyecto": "Proyecto Cobre Norte",
+                        "Sector": "Cobre",
+                        "Área": "Región de Tarapacá",
+                        "País": "Chile",
+                        "Etapa": "Desarrollo",
+                        "Compañías relacionadas": "Antofagasta Minerals",
+                        "Capex (US$ mn)": 1800,
+                        "Tipo de proyecto": "Nuevo proyecto",
+                        "Productos y Servicios": "Extracción de cobre, Concentrado",
+                        "Estado": "En desarrollo",
+                        "Latitud": -20.2,
+                        "Longitud": -69.8,
+                        "Descripcion": "Nuevo proyecto de cobre en el norte de Chile"
+                    }
+                ]
+            };
+            
+            processProjectData(basicData);
+            showNotification('⚠️ Usando datos de ejemplo. Sube tus datos desde el Panel de Administración.', true);
+        }
+        
+        // Función de respaldo vacía
+        function loadFallbackData() {
+            loadBasicExampleData();
+        }
+
+        // Actualizar filtros con datos reales
+        function updateFilters() {
+            const countries = [...new Set(projects.map(p => p.país))].sort();
+            const sectors = [...new Set(projects.map(p => p.sector))].sort();
+            const etapas = [...new Set(projects.map(p => p.etapa))].sort();
+            
+            // Actualizar filtro de países
+            const countryFilter = document.getElementById('country-filter');
+            if (countryFilter) {
+                countryFilter.innerHTML = '<option value="">Todos los países</option>';
+                countries.forEach(country => {
+                    countryFilter.innerHTML += `<option value="${country}">${country}</option>`;
+                });
+            }
+            
+            // Actualizar filtro de sectores
+            const sectorFilter = document.getElementById('sector-filter');
+            if (sectorFilter) {
+                sectorFilter.innerHTML = '<option value="">Todos los sectores</option>';
+                sectors.forEach(sector => {
+                    sectorFilter.innerHTML += `<option value="${sector}">${sector}</option>`;
+                });
+            }
+            
+            // Actualizar filtro de etapas
+            const etapaFilter = document.getElementById('etapa-filter');
+            if (etapaFilter) {
+                etapaFilter.innerHTML = '<option value="">Todas las etapas</option>';
+                etapas.forEach(etapa => {
+                    etapaFilter.innerHTML += `<option value="${etapa}">${etapa}</option>`;
+                });
+            }
+            
+            // Configurar event listeners para los filtros (solo una vez)
+            setupFilterListeners();
+        }
+        
+        // Configurar event listeners para filtros
+        function setupFilterListeners() {
+            // Evitar duplicar listeners
+            if (window.filtersConfigured) return;
+            window.filtersConfigured = true;
+            
+            const countryFilter = document.getElementById('country-filter');
+            const sectorFilter = document.getElementById('sector-filter');
+            const etapaFilter = document.getElementById('etapa-filter');
+            
+            if (countryFilter) {
+                countryFilter.addEventListener('change', applyFilters);
+            }
+            
+            if (sectorFilter) {
+                sectorFilter.addEventListener('change', applyFilters);
+            }
+            
+            if (etapaFilter) {
+                etapaFilter.addEventListener('change', applyFilters);
+            }
+            
+            console.log('✅ Filtros configurados correctamente');
+        }
+        
+        // Aplicar filtros a los proyectos
+        function applyFilters() {
+            const searchText = (document.getElementById('search-filter')?.value || '').toLowerCase().trim();
+            const countryValue = document.getElementById('country-filter')?.value || '';
+            const sectorValue = document.getElementById('sector-filter')?.value || '';
+            const etapaValue = document.getElementById('etapa-filter')?.value || '';
+            
+            console.log('🔍 Aplicando filtros:', { searchText, countryValue, sectorValue, etapaValue });
+            
+            // Filtrar proyectos
+            let filteredProjects = [...projects];
+            
+            // Filtro de búsqueda por texto
+            if (searchText) {
+                console.log('🔎 Buscando:', searchText);
+                filteredProjects = filteredProjects.filter(project => {
+                    const searchableText = `
+                        ${project.name || ''} 
+                        ${project.sector || ''} 
+                        ${project.area || ''} 
+                        ${project.país || ''} 
+                        ${project.etapa || ''}
+                        ${project.tipo || ''}
+                        ${project.productos || ''}
+                        ${project.estado || ''}
+                        ${(project.companias || []).join(' ')}
+                    `.toLowerCase();
+                    
+                    const matches = searchableText.includes(searchText);
+                    if (matches) {
+                        console.log('✅ Coincidencia:', project.name);
+                    }
+                    return matches;
+                });
+            }
+            
+            // Filtro por país
+            if (countryValue) {
+                filteredProjects = filteredProjects.filter(p => p.país === countryValue);
+            }
+            
+            // Filtro por sector
+            if (sectorValue) {
+                filteredProjects = filteredProjects.filter(p => p.sector === sectorValue);
+            }
+            
+            // Filtro por etapa
+            if (etapaValue) {
+                filteredProjects = filteredProjects.filter(p => p.etapa === etapaValue);
+            }
+            
+            console.log(`📊 Proyectos filtrados: ${filteredProjects.length} de ${projects.length}`);
+            
+            // Actualizar visualizaciones con proyectos filtrados
+            updateVisualizationsWithFilters(filteredProjects);
+            
+            // Mostrar notificación
+            showNotification(`${filteredProjects.length} proyectos encontrados`);
+        }
+        
+        // Actualizar visualizaciones con proyectos filtrados
+        function updateVisualizationsWithFilters(filteredProjects) {
+            // Guardar proyectos originales
+            const originalProjects = [...projects];
+            
+            // Temporalmente reemplazar projects con filtrados
+            projects = filteredProjects;
+            
+            // Actualizar todas las visualizaciones
+            updateKPIs();
+            updateCharts();
+            updateMap();
+            renderProjectsList();
+            updateRanking();
+            
+            // Restaurar proyectos originales
+            projects = originalProjects;
+            
+            // Actualizar contador en el mapa
+            document.getElementById('map-stats').textContent = `${filteredProjects.length} proyectos mostrados (${projects.length} total)`;
+        }
+
+        // Actualizar KPIs
+        function updateKPIs() {
+            document.getElementById('total-projects').textContent = projects.length;
+            const totalCapex = projects.reduce((sum, p) => sum + (parseFloat(p.capex) || 0), 0);
+            document.getElementById('total-capex').textContent = totalCapex.toLocaleString('es-ES');
+            document.getElementById('active-projects').textContent = projects.filter(p => p.estado === 'Activo').length;
+        }
+
+        // Actualizar mapa
+        function updateMap() {
+            // Limpiar marcadores existentes
+            Object.values(markers).forEach(marker => {
+                if (map.hasLayer(marker)) {
+                    map.removeLayer(marker);
+                }
+            });
+            markers = {};
+
+            // Agregar nuevos marcadores
+            projects.forEach(project => {
+                const lat = parseFloat(project.coordinates[0]);
+                const lng = parseFloat(project.coordinates[1]);
+                
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    const marker = L.circleMarker([lat, lng], {
+                        radius: 8,
+                        fillColor: project.estado === 'Activo' ? '#2ecc71' : '#f39c12',
+                        color: '#000',
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(map);
+
+                    const popupContent = `
+                        <div style="min-width: 200px;">
+                            <b style="color: #0055A6; font-size: 1.1em;">${project.name}</b><br>
+                            <div style="margin: 8px 0;">
+                                <b>Sector:</b> ${project.sector}<br>
+                                <b>País:</b> ${project.país}<br>
+                                <b>Inversión:</b> $${project.capex.toLocaleString('es-ES')} MM<br>
+                                <b>Etapa:</b> ${project.etapa}
+                            </div>
+                            <button onclick="selectProjectFromMap('${project.name}')" 
+                                    style="background: #0055A6; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                                <i class="fas fa-eye"></i> Ver Detalles
+                            </button>
+                        </div>
+                    `;
+                    marker.bindPopup(popupContent);
+                    
+                    // Agregar evento de click al marcador
+                    marker.on('click', function() {
+                        selectProjectFromMap(project.name);
+                    });
+                    
+                    // Agregar evento de hover
+                    marker.on('mouseover', function() {
+                        this.setStyle({ 
+                            radius: 10, 
+                            weight: 2, 
+                            color: '#0055A6',
+                            fillOpacity: 1 
+                        });
+                    });
+                    
+                    marker.on('mouseout', function() {
+                        if (selectedProject?.name !== project.name) {
+                            this.setStyle({ 
+                                radius: 8, 
+                                weight: 1, 
+                                color: '#000',
+                                fillOpacity: 0.8 
+                            });
+                        }
+                    });
+                    
+                    markers[project.name] = marker;
+                }
+            });
+
+            document.getElementById('map-stats').textContent = `${projects.length} proyectos mostrados`;
+        }
+
+        // Renderizar lista de proyectos
+        function renderProjectsList() {
+            const container = document.getElementById('projects-list');
+            if (!container) return;
+
+            if (projects.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 50px; color: #666;">
+                        <i class="fas fa-database" style="font-size: 3rem; margin-bottom: 20px; color: #ccc;"></i>
+                        <h3 style="margin-bottom: 10px; color: #999;">No hay proyectos cargados</h3>
+                        <p style="margin-bottom: 20px;">Carga datos desde el Panel de Administración para ver los proyectos aquí.</p>
+                        <button onclick="reloadData()" style="padding: 10px 20px; background: #0055A6; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            <i class="fas fa-sync-alt"></i> Recargar Datos
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = projects.map(project => `
+                <div class="project-card" onclick="selectProject('${project.name}')">
+                    <div class="project-header">
+                        <h3>${project.name}</h3>
+                        <div class="project-status">${project.etapa}</div>
+                    </div>
+                    <div class="project-body">
+                        <div class="project-info">
+                            <div><i class="fas fa-industry"></i> ${project.sector}</div>
+                            <div><i class="fas fa-globe-americas"></i> ${project.país}</div>
+                            <div><i class="fas fa-map-marker-alt"></i> ${project.area}</div>
+                            <div><i class="fas fa-cog"></i> ${project.estado}</div>
+                        </div>
+                        <div class="project-capex">
+                            ${project.capex.toLocaleString('es-ES')} MM US$
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Seleccionar proyecto desde la lista
+        function selectProject(projectName) {
+            const project = projects.find(p => p.name === projectName);
+            if (!project) return;
+
+            selectedProject = project;
+            
+            // Actualizar detalles del proyecto
+            updateProjectDetails(project);
+
+            // Cambiar a la pestaña de detalles
+            switchTab('details');
+            
+            // Resaltar en el mapa y mover con animación fluida
+            highlightProjectOnMap(project);
+            
+            // Resaltar en la lista
+            highlightProjectInList(projectName);
+        }
+
+        // Seleccionar proyecto desde el mapa
+        function selectProjectFromMap(projectName) {
+            const project = projects.find(p => p.name === projectName);
+            if (!project) return;
+
+            selectedProject = project;
+            
+            // Actualizar detalles del proyecto
+            updateProjectDetails(project);
+
+            // Cambiar a la pestaña de detalles
+            switchTab('details');
+            
+            // Resaltar en el mapa
+            highlightProjectOnMap(project, false); // No mover el mapa ya que se hizo clic desde ahí
+            
+            // Resaltar en la lista y hacer scroll
+            highlightProjectInList(projectName, true);
+        }
+
+        // Función para actualizar detalles del proyecto
+        function updateProjectDetails(project) {
+            const detailsContainer = document.getElementById('project-details');
+            if (detailsContainer) {
+                detailsContainer.innerHTML = `
+                    <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        <h2 style="color: #0055A6; margin-bottom: 15px;">${project.name}</h2>
+                        <div style="display: grid; gap: 10px;">
+                            <div><strong>Sector:</strong> ${project.sector}</div>
+                            <div><strong>País:</strong> ${project.país}</div>
+                            <div><strong>Área:</strong> ${project.area}</div>
+                            <div><strong>Etapa:</strong> ${project.etapa}</div>
+                            <div><strong>Estado:</strong> ${project.estado}</div>
+                            <div><strong>CAPEX:</strong> $${project.capex.toLocaleString('es-ES')} MM US$</div>
+                            <div><strong>Tipo:</strong> ${project.tipo}</div>
+                            <div><strong>Productos:</strong> ${project.productos}</div>
+                            <div><strong>Compañías:</strong> ${project.companias.join(', ')}</div>
+                            ${project.descripcion ? `<div><strong>Descripción:</strong> ${project.descripcion}</div>` : ''}
+                        </div>
+                        <div style="margin-top: 15px; text-align: center;">
+                            <button onclick="focusOnMapLocation('${project.name}')" 
+                                    style="background: #0055A6; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer;">
+                                <i class="fas fa-map-marker-alt"></i> Ver en Mapa
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Función para resaltar proyecto en el mapa
+        function highlightProjectOnMap(project, moveMap = true) {
+            // Resetear todos los marcadores
+            Object.values(markers).forEach(marker => {
+                marker.setStyle({ 
+                    weight: 1, 
+                    radius: 8, 
+                    color: '#000',
+                    fillOpacity: 0.8 
+                });
+            });
+
+            // Resaltar el marcador seleccionado
+            if (markers[project.name]) {
+                markers[project.name].setStyle({ 
+                    weight: 3, 
+                    radius: 12, 
+                    color: '#E60028',
+                    fillOpacity: 1 
+                });
+                
+                // Mover el mapa con animación fluida si se solicita
+                if (moveMap) {
+                    map.flyTo(project.coordinates, 8, {
+                        animate: true,
+                        duration: 1.5, // Duración en segundos
+                        easeLinearity: 0.25 // Suavidad de la animación
+                    });
+                }
+            }
+        }
+
+        // Función para resaltar proyecto en la lista
+        function highlightProjectInList(projectName, scrollToProject = false) {
+            // Remover resaltado anterior
+            document.querySelectorAll('.project-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+
+            // Resaltar el proyecto seleccionado
+            const projectCards = document.querySelectorAll('.project-card');
+            projectCards.forEach(card => {
+                const cardTitle = card.querySelector('h3');
+                if (cardTitle && cardTitle.textContent === projectName) {
+                    card.classList.add('selected');
+                    
+                    // Hacer scroll al proyecto si se solicita
+                    if (scrollToProject) {
+                        card.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center' 
+                        });
+                    }
+                }
+            });
+        }
+
+        // Función para enfocar en la ubicación del mapa
+        function focusOnMapLocation(projectName) {
+            const project = projects.find(p => p.name === projectName);
+            if (project && markers[projectName]) {
+                map.flyTo(project.coordinates, 10, {
+                    animate: true,
+                    duration: 2.0,
+                    easeLinearity: 0.25
+                });
+                
+                // Abrir popup del marcador
+                setTimeout(() => {
+                    markers[projectName].openPopup();
+                }, 2000);
+            }
+        }
+
+        // Cambiar pestaña
+        function switchTab(tabName) {
+            // Actualizar pestañas
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+            // Actualizar contenido
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            document.getElementById(`${tabName}-content`).classList.add('active');
+
+            currentTab = tabName;
+        }
+
+        // Actualizar gráficos
+        function updateCharts() {
+            updateInvestmentPieChart();
+            updateTopProjectsChart();
+            updateSectorStackedChart();
+            updateCompanyBarChart();
+        }
+
+        // Gráfico de inversión por sector
+        function updateInvestmentPieChart() {
+            const canvas = document.getElementById('investment-pie-chart');
+            if (!canvas) return;
+
+            if (investmentPieChart) {
+                investmentPieChart.destroy();
+            }
+
+            const sectorData = {};
+            projects.forEach(p => {
+                const capex = parseFloat(p.capex) || 0;
+                sectorData[p.sector] = (sectorData[p.sector] || 0) + capex;
+            });
+
+            const sectors = Object.keys(sectorData);
+            const values = Object.values(sectorData);
+
+            if (sectors.length === 0) return;
+
+            const ctx = canvas.getContext('2d');
+            investmentPieChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: sectors,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: [
+                            '#0055A6', '#E60028', '#003366', '#9b59b6', '#2ecc71',
+                            '#1abc9c', '#34495e', '#e67e22', '#16a085', '#27ae60'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Gráfico de top proyectos
+        function updateTopProjectsChart() {
+            const canvas = document.getElementById('top-projects-chart');
+            if (!canvas) return;
+
+            if (topProjectsChart) {
+                topProjectsChart.destroy();
+            }
+
+            const topProjects = projects
+                .sort((a, b) => (parseFloat(b.capex) || 0) - (parseFloat(a.capex) || 0))
+                .slice(0, 5);
+
+            const labels = topProjects.map(p => p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name);
+            const values = topProjects.map(p => parseFloat(p.capex) || 0);
+
+            if (labels.length === 0) return;
+
+            const ctx = canvas.getContext('2d');
+            topProjectsChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'CAPEX (US$ MM)',
+                        data: values,
+                        backgroundColor: '#0055A6',
+                        borderColor: '#003366',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString('es-ES');
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 45
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Gráfico de etapas por sector
+        function updateSectorStackedChart() {
+            const canvas = document.getElementById('sector-stacked-chart');
+            if (!canvas) return;
+
+            if (sectorStackedChart) {
+                sectorStackedChart.destroy();
+            }
+
+            const sectorEtapaData = {};
+            const etapas = [...new Set(projects.map(p => p.etapa))];
+
+            projects.forEach(p => {
+                if (!sectorEtapaData[p.sector]) {
+                    sectorEtapaData[p.sector] = {};
+                }
+                sectorEtapaData[p.sector][p.etapa] = (sectorEtapaData[p.sector][p.etapa] || 0) + 1;
+            });
+
+            const sectors = Object.keys(sectorEtapaData);
+            const datasets = etapas.map((etapa, index) => ({
+                label: etapa,
+                data: sectors.map(sector => sectorEtapaData[sector][etapa] || 0),
+                backgroundColor: [
+                    '#0055A6', '#E60028', '#003366', '#9b59b6', '#2ecc71',
+                    '#1abc9c', '#34495e', '#e67e22', '#16a085', '#27ae60'
+                ][index % 10]
+            }));
+
+            if (sectors.length === 0) return;
+
+            const ctx = canvas.getContext('2d');
+            sectorStackedChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sectors.map(s => s.length > 15 ? s.substring(0, 15) + '...' : s),
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            stacked: true,
+                            ticks: {
+                                maxRotation: 45
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 10
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Gráfico de inversión por compañía
+        function updateCompanyBarChart() {
+            const canvas = document.getElementById('company-bar-chart');
+            if (!canvas) return;
+
+            if (companyBarChart) {
+                companyBarChart.destroy();
+            }
+
+            const companyData = {};
+            projects.forEach(p => {
+                if (p.companias && Array.isArray(p.companias)) {
+                    p.companias.forEach(company => {
+                        const cleanCompany = company.trim();
+                        if (cleanCompany) {
+                            companyData[cleanCompany] = (companyData[cleanCompany] || 0) + (parseFloat(p.capex) || 0);
+                        }
+                    });
+                }
+            });
+
+            const sortedCompanies = Object.entries(companyData)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 10);
+
+            const labels = sortedCompanies.map(([company]) => 
+                company.length > 25 ? company.substring(0, 25) + '...' : company
+            );
+            const values = sortedCompanies.map(([,investment]) => investment);
+
+            if (labels.length === 0) return;
+
+            const ctx = canvas.getContext('2d');
+            companyBarChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Inversión (US$ MM)',
+                        data: values,
+                        backgroundColor: '#0055A6',
+                        borderColor: '#003366',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString('es-ES');
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Actualizar ranking
+        function updateRanking() {
+            const rankingBody = document.getElementById('ranking-body');
+            const rankingHeader = document.getElementById('ranking-header');
+            
+            if (!rankingBody || !rankingHeader) return;
+
+            let rankingData = [];
+            let headerHTML = '';
+
+            switch (currentRanking) {
+                case 'projects':
+                    // Ranking por número de proyectos
+                    const companyProjects = {};
+                    projects.forEach(p => {
+                        if (p.companias && Array.isArray(p.companias)) {
+                            p.companias.forEach(company => {
+                                const cleanCompany = company.trim();
+                                if (cleanCompany) {
+                                    companyProjects[cleanCompany] = (companyProjects[cleanCompany] || 0) + 1;
+                                }
+                            });
+                        }
+                    });
+                    
+                    rankingData = Object.entries(companyProjects)
+                        .sort(([,a], [,b]) => b - a)
+                        .slice(0, 10);
+                    
+                    headerHTML = `
+                        <th>#</th>
+                        <th>Empresa</th>
+                        <th>Proyectos</th>
+                    `;
+                    break;
+
+                case 'investment':
+                    // Ranking por inversión total
+                    const companyInvestment = {};
+                    projects.forEach(p => {
+                        if (p.companias && Array.isArray(p.companias)) {
+                            const capexPerCompany = (parseFloat(p.capex) || 0) / p.companias.length;
+                            p.companias.forEach(company => {
+                                const cleanCompany = company.trim();
+                                if (cleanCompany) {
+                                    companyInvestment[cleanCompany] = (companyInvestment[cleanCompany] || 0) + capexPerCompany;
+                                }
+                            });
+                        }
+                    });
+                    
+                    rankingData = Object.entries(companyInvestment)
+                        .sort(([,a], [,b]) => b - a)
+                        .slice(0, 10);
+                    
+                    headerHTML = `
+                        <th>#</th>
+                        <th>Empresa</th>
+                        <th>Inversión (MM US$)</th>
+                    `;
+                    break;
+
+                case 'diversity':
+                    // Ranking por diversidad de sectores
+                    const companySectors = {};
+                    projects.forEach(p => {
+                        if (p.companias && Array.isArray(p.companias)) {
+                            p.companias.forEach(company => {
+                                const cleanCompany = company.trim();
+                                if (cleanCompany) {
+                                    if (!companySectors[cleanCompany]) {
+                                        companySectors[cleanCompany] = new Set();
+                                    }
+                                    companySectors[cleanCompany].add(p.sector);
+                                }
+                            });
+                        }
+                    });
+                    
+                    rankingData = Object.entries(companySectors)
+                        .map(([company, sectors]) => [company, sectors.size])
+                        .sort(([,a], [,b]) => b - a)
+                        .slice(0, 10);
+                    
+                    headerHTML = `
+                        <th>#</th>
+                        <th>Empresa</th>
+                        <th>Sectores</th>
+                    `;
+                    break;
+            }
+
+            // Actualizar header
+            rankingHeader.innerHTML = headerHTML;
+
+            // Actualizar body
+            rankingBody.innerHTML = rankingData.map(([company, value], index) => {
+                let displayValue = value;
+                if (currentRanking === 'investment') {
+                    displayValue = Math.round(value).toLocaleString('es-ES');
+                }
+                
+                const shortCompany = company.length > 25 ? company.substring(0, 25) + '...' : company;
+                
+                return `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td title="${company}">${shortCompany}</td>
+                        <td>${displayValue}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Cambiar tipo de ranking
+        function changeRanking(rankingType) {
+            currentRanking = rankingType;
+            
+            // Actualizar pestañas activas
+            document.querySelectorAll('.chart-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`[data-ranking="${rankingType}"]`).classList.add('active');
+            
+            // Actualizar ranking
+            updateRanking();
+        }
+
+        // Agregar event listeners para las pestañas
+        document.addEventListener('DOMContentLoaded', function() {
+            // Event listeners para pestañas principales
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    switchTab(tabName);
+                });
+            });
+            
+            // Event listeners para pestañas del ranking
+            document.querySelectorAll('.chart-tab[data-ranking]').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const rankingType = this.getAttribute('data-ranking');
+                    changeRanking(rankingType);
+                });
+            });
+            
+            // Event listener para búsqueda en tiempo real
+            const searchInput = document.getElementById('search-filter');
+            if (searchInput) {
+                console.log('✅ Input de búsqueda encontrado, agregando event listener');
+                searchInput.addEventListener('input', function() {
+                    console.log('🔍 Búsqueda activada:', this.value);
+                    applyFilters();
+                });
+            } else {
+                console.error('❌ Input de búsqueda no encontrado');
+            }
+        });
+
+        // Hacer funciones disponibles globalmente para Firebase Ultra Simple
+        window.updateCharts = updateCharts;
+        window.updateMap = updateMap;
+        window.renderProjectsList = renderProjectsList;
+        window.updateFilters = updateFilters;
+        window.updateRanking = updateRanking;
+        window.updateKPIs = updateKPIs;
+        window.updateAllInterface = updateAllInterface;
+        
+        // Inicializar aplicación
+        function initApp() {
+            console.log('Inicializando aplicación...');
+            
+            // Esperar a que el sistema de autenticación esté listo
+            window.addEventListener('authSystemReady', () => {
+                updateAuthState();
+                console.log('Sistema de autenticación inicializado');
+            });
+            
+            // Escuchar cambios de autenticación
+            window.addEventListener('authChange', (event) => {
+                console.log('Cambio de autenticación detectado:', event.detail);
+                updateAuthState();
+            });
+            
+            // Escuchar cuando Firebase Ultra Simple termine de cargar datos
+            window.addEventListener('firebaseDataReady', (event) => {
+                console.log('🎉 Evento firebaseDataReady recibido:', event.detail);
+                if (window.projects && window.projects.length > 0) {
+                    projects = window.projects;
+                    updateAllInterface();
+                    showNotification(`🎉 Dashboard actualizado: ${projects.length} proyectos`);
+                }
+            });
+            
+            // Verificar si ya está cargado
+            if (window.authSystemPro) {
+                updateAuthState();
+            } else {
+                console.warn('Sistema de autenticación no disponible');
+            }
+            
+            // Configurar listener para actualizaciones de datos
+            setupDataUpdateListener();
+            
+            initMap();
+            
+            // Intentar cargar datos con múltiples intentos
+            setTimeout(() => {
+                console.log('🔥 Primer intento de carga de datos...');
+                loadData();
+            }, 500);
+            
+            // Segundo intento después de 2 segundos (por si Firebase tarda)
+            setTimeout(() => {
+                console.log('🔥 Segundo intento de carga de datos...');
+                if (projects.length === 0) {
+                    console.log('⚠️ No hay proyectos cargados, reintentando...');
+                    loadData();
+                }
+            }, 2000);
+            
+            // Tercer intento después de 4 segundos (para Firebase Ultra Simple)
+            setTimeout(() => {
+                console.log('🔥 Verificación final de datos...');
+                if (window.projects && window.projects.length > 0 && projects.length === 0) {
+                    console.log('🔥 ✅ Datos encontrados en window.projects, sincronizando...');
+                    projects = window.projects;
+                    updateAllInterface();
+                }
+            }, 4000);
+            
+            showNotification('🔥 Dashboard inicializando... Conectando con Firebase');
+        }
+        
+        // Inicializar cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
