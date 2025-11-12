@@ -93,6 +93,9 @@ window.DashboardConfig = {
     },
     
     // Configuración de Firebase (Configuración real de producción)
+    // NOTA: La API Key de Firebase es pública por diseño en aplicaciones web.
+    // La seguridad se maneja con Reglas de Firestore, no con la API Key.
+    // Ver SECURITY.md para más información.
     firebaseConfig: {
         apiKey: "AIzaSyC0sXqmd9YJQe9_IhUgO3SGLPnXk_U8RT4",
         authDomain: "miningadboard.firebaseapp.com",
